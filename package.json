@@ -1,0 +1,46 @@
+{
+  "name": "gherkin-flow",
+  "displayName": "Gherkin Flow",
+  "description": "Run Cucumber scenarios directly from .feature files in VS Code.",
+  "version": "0.1.0",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:gherkinFlow.runScenario",
+    "onLanguage:gherkin"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "gherkinFlow.runScenario",
+        "title": "Run Scenario (GherkinFlow)",
+        "category": "GherkinFlow"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "gherkinFlow.runScenario",
+          "when": "resourceExtname == .feature",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "@types/vscode": "^1.80.0",
+    "@types/node": "^20.11.0",
+    "@vscode/test-electron": "^2.5.0"
+  }
+}
