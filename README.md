@@ -27,3 +27,4 @@ A lightweight VS Code extension to run Cucumber scenarios directly from `.featur
 npm install
 npm run compile
 ```
+---
