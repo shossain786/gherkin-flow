@@ -34,9 +34,9 @@ function buildCommand(scenarioName: string, workspaceFolder: string): string {
   const useMavenWrapper = existsSync(workspaceFolder, 'mvnw');
   const useMaven = existsSync(workspaceFolder, 'pom.xml');
 
-  const escapedName = escapeShellArg(scenarioName);
-  const gradleArg = `-Pcucumber.filter.name=${escapedName}`;
-  const mavenArg = `-Dcucumber.filter.name=${escapedName}`;
+  const safeName = scenarioName.replace(/"/g, '\\"');
+  const gradleArg = `"-Pcucumber.filter.name=${safeName}"`;
+  const mavenArg = `"-Dcucumber.filter.name=${safeName}"`;
 
   if (useGradleWrapper) {
     return `./gradlew test ${gradleArg}`;
