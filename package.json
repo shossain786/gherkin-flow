@@ -11,10 +11,18 @@
   ],
   "activationEvents": [
     "onCommand:gherkinFlow.runScenario",
-    "onLanguage:gherkin"
+    "onLanguage:gherkin",
+    "workspaceContains:**/*.feature"
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languages": [
+      {
+        "id": "gherkin",
+        "aliases": ["Gherkin", "Cucumber"],
+        "extensions": [".feature"]
+      }
+    ],
     "commands": [
       {
         "command": "gherkinFlow.runScenario",
