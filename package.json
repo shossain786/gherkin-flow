@@ -28,6 +28,11 @@
         "command": "gherkinFlow.runScenario",
         "title": "Run Scenario (GherkinFlow)",
         "category": "GherkinFlow"
+      },
+      {
+        "command": "gherkinFlow.runFeature",
+        "title": "Run Feature File (GherkinFlow)",
+        "category": "GherkinFlow"
       }
     ],
     "menus": {
@@ -35,7 +40,12 @@
         {
           "command": "gherkinFlow.runScenario",
           "when": "resourceExtname == .feature",
-          "group": "navigation"
+          "group": "navigation@1"
+        },
+        {
+          "command": "gherkinFlow.runFeature",
+          "when": "resourceExtname == .feature",
+          "group": "navigation@2"
         }
       ]
     }
