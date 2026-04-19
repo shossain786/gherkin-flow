@@ -1,13 +1,29 @@
 {
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
-  "description": "Run Cucumber scenarios directly from .feature files in VS Code.",
+  "description": "Run Cucumber scenarios directly from .feature files in VS Code — with step-by-step results, CodeLens run buttons, and Test Explorer integration.",
   "version": "0.1.0",
+  "publisher": "RazaTech",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shossain786/gherkin-flow"
+  },
   "engines": {
     "vscode": "^1.80.0"
   },
   "categories": [
-    "Other"
+    "Testing"
+  ],
+  "keywords": [
+    "cucumber",
+    "gherkin",
+    "bdd",
+    "testing",
+    "maven",
+    "gradle",
+    "feature",
+    "scenario"
   ],
   "activationEvents": [
     "onCommand:gherkinFlow.runScenario",
