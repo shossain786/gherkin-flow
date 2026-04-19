@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { GherkinTestController } from './testController';
+import { StepDefinitionIndex, GherkinDefinitionProvider } from './stepDefinitionProvider';
 
 const SCENARIO_REGEX = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX  = /^\s*Feature:\s*(.*)$/i;
@@ -113,12 +114,20 @@ export function activate(context: vscode.ExtensionContext) {
     new GherkinFlowCodeLensProvider()
   );
 
+  const stepIndex = new StepDefinitionIndex(context);
+  stepIndex.scan();
+  const defProvider = vscode.languages.registerDefinitionProvider(
+    { pattern: '**/*.feature' },
+    new GherkinDefinitionProvider(stepIndex)
+  );
+
   context.subscriptions.push(
     runScenarioAtCursor,
     runFeatureAtCursor,
     runScenarioByName,
     runFeatureByUri,
     codeLens,
+    defProvider,
     vscode.window.onDidChangeActiveTextEditor(editor => {
       if (editor) { applyDecorations(editor); }
     }),
