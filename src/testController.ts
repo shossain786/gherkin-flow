@@ -38,6 +38,13 @@ function buildFeatureCmd(relativePath: string, cwd: string): string {
   return `${exe} test ${arg}`;
 }
 
+function buildTagCmd(tag: string, cwd: string): string {
+  const { exe, isGradle } = detectExecutable(cwd);
+  const safe = tag.replace(/"/g, '\\"');
+  const arg = isGradle ? `"-Pcucumber.filter.tags=${safe}"` : `"-Dcucumber.filter.tags=${safe}"`;
+  return `${exe} test ${arg}`;
+}
+
 function getWorkspacePath(uri: vscode.Uri): string {
   const ws = vscode.workspace.getWorkspaceFolder(uri) ?? vscode.workspace.workspaceFolders?.[0];
   return ws?.uri.fsPath ?? path.dirname(uri.fsPath);
@@ -93,6 +100,7 @@ export class GherkinTestController {
   private readonly ctrl: vscode.TestController;
   private readonly watcher: vscode.FileSystemWatcher;
   private readonly featureItems = new Map<string, vscode.TestItem>();
+  private readonly scenarioTags  = new Map<string, string[]>(); // itemId → tags
 
   constructor(context: vscode.ExtensionContext) {
     this.ctrl = vscode.tests.createTestController('gherkinFlow', 'Gherkin Flow');
@@ -148,6 +156,10 @@ export class GherkinTestController {
     await this._runHandler(new vscode.TestRunRequest([featureItem]), new vscode.CancellationTokenSource().token);
   }
 
+  public runByTag(tag: string, uri: vscode.Uri): void {
+    this._fallback(buildTagCmd(tag, getWorkspacePath(uri)), uri);
+  }
+
   // --- Private ---
 
   private async _discoverAll(): Promise<void> {
@@ -193,6 +205,7 @@ export class GherkinTestController {
           const scenarioItem = this.ctrl.createTestItem(scenarioId, scenario.name, uri);
           scenarioItem.range = new vscode.Range(scenario.line, 0, scenario.line, 0);
           this._addSteps(scenarioItem, scenarioId, scenario.steps, uri);
+          if (scenario.tags.length > 0) { this.scenarioTags.set(scenarioId, scenario.tags); }
           featureItem.children.add(scenarioItem);
         }
       }
@@ -219,6 +232,9 @@ export class GherkinTestController {
   private _deleteFile(uri: vscode.Uri): void {
     this.ctrl.items.delete(uri.fsPath);
     this.featureItems.delete(uri.fsPath);
+    for (const key of this.scenarioTags.keys()) {
+      if (key.startsWith(uri.fsPath)) { this.scenarioTags.delete(key); }
+    }
   }
 
   private async _runHandler(

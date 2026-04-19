@@ -5,6 +5,7 @@ import { StepDefinitionIndex, GherkinDefinitionProvider } from './stepDefinition
 
 const SCENARIO_REGEX = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX  = /^\s*Feature:\s*(.*)$/i;
+const TAG_LINE_REGEX = /^\s*(@\S+(?:\s+@\S+)*)\s*$/;
 
 const scenarioDecoration = vscode.window.createTextEditorDecorationType({
   isWholeLine: true,
@@ -57,6 +58,20 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           command: 'gherkinFlow.runScenarioByName',
           arguments: [sm[2].trim(), document.uri]
         }));
+        // Tag buttons: scan lines immediately above the scenario (skip blanks, stop at non-tag)
+        const tags: string[] = [];
+        for (let j = i - 1; j >= 0; j--) {
+          const tagMatch = document.lineAt(j).text.match(TAG_LINE_REGEX);
+          if (tagMatch) { tags.unshift(...tagMatch[1].trim().split(/\s+/)); }
+          else if (document.lineAt(j).text.trim().length > 0) { break; }
+        }
+        for (const tag of [...new Set(tags)]) {
+          lenses.push(new vscode.CodeLens(range, {
+            title: `▶ ${tag}`,
+            command: 'gherkinFlow.runByTag',
+            arguments: [tag, document.uri]
+          }));
+        }
       }
     }
     return lenses;
@@ -109,6 +124,12 @@ export function activate(context: vscode.ExtensionContext) {
     (uri: vscode.Uri) => controller.runFeature(uri)
   );
 
+  // CodeLens: run all scenarios with a tag
+  const runByTag = vscode.commands.registerCommand(
+    'gherkinFlow.runByTag',
+    (tag: string, uri: vscode.Uri) => controller.runByTag(tag, uri)
+  );
+
   const codeLens = vscode.languages.registerCodeLensProvider(
     { pattern: '**/*.feature' },
     new GherkinFlowCodeLensProvider()
@@ -128,6 +149,7 @@ export function activate(context: vscode.ExtensionContext) {
     runFeatureByUri,
     codeLens,
     defProvider,
+    runByTag,
     vscode.window.onDidChangeActiveTextEditor(editor => {
       if (editor) { applyDecorations(editor); }
     }),
