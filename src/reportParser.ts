@@ -53,19 +53,30 @@ export function parseReport(reportPath: string): ParsedReport {
     const content = fs.readFileSync(reportPath, 'utf-8');
     const features = JSON.parse(content) as RawFeature[];
 
+    const toStep = (s: RawStep): ParsedStep => ({
+      keyword: String(s.keyword ?? '').trim(),
+      name: String(s.name ?? ''),
+      status: (s.result?.status ?? 'undefined') as StepStatus,
+      durationMs: Math.round((s.result?.duration ?? 0) / 1_000_000),
+      errorMessage: s.result?.error_message ? String(s.result.error_message) : undefined
+    });
+
     for (const feature of features) {
+      let pendingBackgroundSteps: ParsedStep[] = [];
+
       for (const el of feature.elements ?? []) {
+        if (el.type === 'background') {
+          // Capture background steps — they precede each scenario in the JSON
+          pendingBackgroundSteps = (el.steps ?? []).map(toStep);
+          continue;
+        }
         if (el.type !== 'scenario') { continue; }
 
-        const steps: ParsedStep[] = (el.steps ?? []).map(s => ({
-          keyword: String(s.keyword ?? '').trim(),
-          name: String(s.name ?? ''),
-          status: (s.result?.status ?? 'undefined') as StepStatus,
-          durationMs: Math.round((s.result?.duration ?? 0) / 1_000_000),
-          errorMessage: s.result?.error_message
-            ? String(s.result.error_message)
-            : undefined
-        }));
+        // Prepend background steps so indices align with featureParser's scenario.steps
+        const steps: ParsedStep[] = [
+          ...pendingBackgroundSteps,
+          ...(el.steps ?? []).map(toStep)
+        ];
 
         const durationMs = steps.reduce((sum, s) => sum + s.durationMs, 0);
 
@@ -75,6 +86,9 @@ export function parseReport(reportPath: string): ParsedReport {
           steps,
           durationMs
         });
+
+        // Reset so next scenario gets its own fresh background (Cucumber repeats per scenario)
+        pendingBackgroundSteps = [];
       }
     }
   } catch {

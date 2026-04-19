@@ -157,13 +157,11 @@ export class GherkinTestController {
         const scenarioItem = this.ctrl.createTestItem(scenarioId, scenario.name, uri);
         scenarioItem.range = new vscode.Range(scenario.line, 0, scenario.line, 0);
 
-        // Add each step as a child TestItem
+        // Add each step as a child TestItem — no range so no gutter run button
         for (let i = 0; i < scenario.steps.length; i++) {
           const step = scenario.steps[i];
           const stepId = `${scenarioId}::${i}`;
-          const label  = `${step.keyword} ${step.text}`;
-          const stepItem = this.ctrl.createTestItem(stepId, label, uri);
-          stepItem.range = new vscode.Range(step.line, 0, step.line, 0);
+          const stepItem = this.ctrl.createTestItem(stepId, `${step.keyword} ${step.text}`, uri);
           scenarioItem.children.add(stepItem);
         }
 
@@ -280,10 +278,6 @@ export class GherkinTestController {
       const stepResult = parsed.steps[idx];
       if (!stepResult) { run.skipped(stepItem); return; }
 
-      const location = (stepItem.uri && stepItem.range)
-        ? new vscode.Location(stepItem.uri, stepItem.range.start)
-        : undefined;
-
       // Associate output with this specific step — visible when step is clicked in Test Results
       const icon = stepResult.status === 'passed' ? '✓' : stepResult.status === 'failed' ? '✗' : '–';
       const dur  = stepResult.durationMs > 0 ? ` (${stepResult.durationMs}ms)` : '';
@@ -291,13 +285,12 @@ export class GherkinTestController {
       if (stepResult.errorMessage) {
         stepLog += `\r\n${stepResult.errorMessage.replace(/\r?\n/g, '\r\n')}\r\n`;
       }
-      run.appendOutput(stepLog, location, stepItem);
+      run.appendOutput(stepLog, undefined, stepItem);
 
       if (stepResult.status === 'passed') {
         run.passed(stepItem, stepResult.durationMs);
       } else if (stepResult.status === 'failed') {
         const msg = new vscode.TestMessage(stepResult.errorMessage ?? 'Step failed');
-        if (location) { msg.location = location; }
         run.failed(stepItem, msg, stepResult.durationMs);
       } else {
         run.skipped(stepItem);
