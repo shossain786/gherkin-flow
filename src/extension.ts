@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { GherkinTestController } from './testController';
 import { StepDefinitionIndex, GherkinDefinitionProvider } from './stepDefinitionProvider';
 import { GherkinDiagnosticsProvider } from './diagnosticsProvider';
+import { GherkinCompletionProvider } from './completionProvider';
 
 const SCENARIO_REGEX = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX  = /^\s*Feature:\s*(.*)$/i;
@@ -146,7 +147,14 @@ export async function activate(context: vscode.ExtensionContext) {
   const diagnosticsProvider = new GherkinDiagnosticsProvider(stepIndex, context);
   await diagnosticsProvider.initialScan();
 
+  const completionProvider = vscode.languages.registerCompletionItemProvider(
+    { pattern: '**/*.feature' },
+    new GherkinCompletionProvider(stepIndex),
+    ' '
+  );
+
   context.subscriptions.push(
+    completionProvider,
     runScenarioAtCursor,
     runFeatureAtCursor,
     runScenarioByName,
