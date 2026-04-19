@@ -7,6 +7,7 @@ import { parseReport, ParsedReport, ParsedScenario } from './reportParser';
 
 const IS_WIN = process.platform === 'win32';
 const REPORT_RELATIVE = path.join('target', 'cucumber-report.json');
+const OUTLINE_PREFIX = '[OUTLINE]';
 
 // --- Build tool helpers ---
 
@@ -42,12 +43,28 @@ function getWorkspacePath(uri: vscode.Uri): string {
   return ws?.uri.fsPath ?? path.dirname(uri.fsPath);
 }
 
-// ID structure:  feature=filePath | scenario=filePath::name | step=filePath::scenarioName::idx
-function itemLevel(item: vscode.TestItem): 'feature' | 'scenario' | 'step' {
-  const count = (item.id.match(/::/g) ?? []).length;
-  if (count === 0) { return 'feature'; }
-  if (count === 1) { return 'scenario'; }
-  return 'step';
+// ID scheme:
+//   feature  → filePath
+//   scenario → filePath::name
+//   step     → filePath::name::idx
+//   outline  → filePath::[OUTLINE]name
+//   example  → filePath::[OUTLINE]name::expandedName
+//   ex-step  → filePath::[OUTLINE]name::expandedName::idx
+
+type ItemLevel = 'feature' | 'scenario' | 'step' | 'outline' | 'example';
+
+function itemLevel(item: vscode.TestItem): ItemLevel {
+  const parts = item.id.split('::');
+  if (parts.length === 1) { return 'feature'; }
+  const isOutlineBranch = parts[1].startsWith(OUTLINE_PREFIX);
+  if (parts.length === 2) { return isOutlineBranch ? 'outline' : 'scenario'; }
+  if (parts.length === 3) { return isOutlineBranch ? 'example' : 'step'; }
+  return 'step'; // length 4 = step under example row
+}
+
+// Build a regex filter from an outline name by stripping <param> tokens
+function outlineFilter(outlineName: string): string {
+  return outlineName.replace(/\s*<[^>]+>/g, '').trim();
 }
 
 // --- Formatters ---
@@ -104,22 +121,21 @@ export class GherkinTestController {
   // Public API for CodeLens
   public async runScenario(scenarioName: string, uri: vscode.Uri): Promise<void> {
     const featureItem = this.featureItems.get(uri.fsPath);
-    if (!featureItem) {
-      this._fallback(buildScenarioCmd(scenarioName, getWorkspacePath(uri)), uri);
-      return;
-    }
+    if (!featureItem) { this._fallback(buildScenarioCmd(scenarioName, getWorkspacePath(uri)), uri); return; }
+
     let target: vscode.TestItem | undefined;
+    // Search direct children (regular scenarios) and outline children (example rows)
     featureItem.children.forEach(child => {
-      if (child.label === scenarioName) { target = child; }
+      if (child.label === scenarioName) { target = child; return; }
+      if (itemLevel(child) === 'outline') {
+        child.children.forEach(example => {
+          if (example.label === scenarioName) { target = example; }
+        });
+      }
     });
-    if (!target) {
-      this._fallback(buildScenarioCmd(scenarioName, getWorkspacePath(uri)), uri);
-      return;
-    }
-    await this._runHandler(
-      new vscode.TestRunRequest([target]),
-      new vscode.CancellationTokenSource().token
-    );
+
+    if (!target) { this._fallback(buildScenarioCmd(scenarioName, getWorkspacePath(uri)), uri); return; }
+    await this._runHandler(new vscode.TestRunRequest([target]), new vscode.CancellationTokenSource().token);
   }
 
   public async runFeature(uri: vscode.Uri): Promise<void> {
@@ -129,10 +145,7 @@ export class GherkinTestController {
       this._fallback(buildFeatureCmd(path.relative(cwd, uri.fsPath).replace(/\\/g, '/'), cwd), uri);
       return;
     }
-    await this._runHandler(
-      new vscode.TestRunRequest([featureItem]),
-      new vscode.CancellationTokenSource().token
-    );
+    await this._runHandler(new vscode.TestRunRequest([featureItem]), new vscode.CancellationTokenSource().token);
   }
 
   // --- Private ---
@@ -152,20 +165,36 @@ export class GherkinTestController {
       const featureItem = this.ctrl.createTestItem(uri.fsPath, parsed.name, uri);
       featureItem.range = new vscode.Range(parsed.line, 0, parsed.line, 0);
 
+      // Group outline-expanded scenarios under outline parent items
+      const outlineItems = new Map<string, vscode.TestItem>();
+
       for (const scenario of parsed.scenarios) {
-        const scenarioId = `${uri.fsPath}::${scenario.name}`;
-        const scenarioItem = this.ctrl.createTestItem(scenarioId, scenario.name, uri);
-        scenarioItem.range = new vscode.Range(scenario.line, 0, scenario.line, 0);
+        if (scenario.outlineName) {
+          // Ensure outline parent exists
+          let outlineItem = outlineItems.get(scenario.outlineName);
+          if (!outlineItem) {
+            const outlineId = `${uri.fsPath}::${OUTLINE_PREFIX}${scenario.outlineName}`;
+            outlineItem = this.ctrl.createTestItem(outlineId, scenario.outlineName, uri);
+            outlineItem.description = 'Scenario Outline';
+            featureItem.children.add(outlineItem);
+            outlineItems.set(scenario.outlineName, outlineItem);
+          }
 
-        // Add each step as a child TestItem — no range so no gutter run button
-        for (let i = 0; i < scenario.steps.length; i++) {
-          const step = scenario.steps[i];
-          const stepId = `${scenarioId}::${i}`;
-          const stepItem = this.ctrl.createTestItem(stepId, `${step.keyword} ${step.text}`, uri);
-          scenarioItem.children.add(stepItem);
+          // Add the expanded example row under the outline
+          const exampleId = `${uri.fsPath}::${OUTLINE_PREFIX}${scenario.outlineName}::${scenario.name}`;
+          const exampleItem = this.ctrl.createTestItem(exampleId, scenario.name, uri);
+          exampleItem.range = new vscode.Range(scenario.line, 0, scenario.line, 0);
+          this._addSteps(exampleItem, exampleId, scenario.steps, uri);
+          outlineItem.children.add(exampleItem);
+
+        } else {
+          // Regular scenario
+          const scenarioId = `${uri.fsPath}::${scenario.name}`;
+          const scenarioItem = this.ctrl.createTestItem(scenarioId, scenario.name, uri);
+          scenarioItem.range = new vscode.Range(scenario.line, 0, scenario.line, 0);
+          this._addSteps(scenarioItem, scenarioId, scenario.steps, uri);
+          featureItem.children.add(scenarioItem);
         }
-
-        featureItem.children.add(scenarioItem);
       }
 
       this.ctrl.items.add(featureItem);
@@ -173,6 +202,18 @@ export class GherkinTestController {
     } catch {
       // ignore unreadable files
     }
+  }
+
+  private _addSteps(
+    parent: vscode.TestItem,
+    parentId: string,
+    steps: { keyword: string; text: string }[],
+    uri: vscode.Uri
+  ): void {
+    steps.forEach((step, i) => {
+      const stepItem = this.ctrl.createTestItem(`${parentId}::${i}`, `${step.keyword} ${step.text}`, uri);
+      parent.children.add(stepItem);
+    });
   }
 
   private _deleteFile(uri: vscode.Uri): void {
@@ -187,31 +228,35 @@ export class GherkinTestController {
     const run = this.ctrl.createTestRun(request);
     const toRun: vscode.TestItem[] = [];
 
-    // Collect only feature/scenario level items to run (not individual steps)
     const collect = (item: vscode.TestItem) => {
-      const level = itemLevel(item);
-      if (level === 'step') { return; }
+      if (itemLevel(item) === 'step') { return; }
       toRun.push(item);
     };
 
-    if (request.include) {
-      request.include.forEach(collect);
-    } else {
-      this.ctrl.items.forEach(collect);
-    }
+    if (request.include) { request.include.forEach(collect); }
+    else                 { this.ctrl.items.forEach(collect); }
 
     for (const item of toRun) {
       if (token.isCancellationRequested) { break; }
 
       const cwd = getWorkspacePath(item.uri!);
       const level = itemLevel(item);
-
-      // Mark everything under this item as started
       this._markStarted(run, item);
 
-      const command = level === 'feature'
-        ? buildFeatureCmd(path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/'), cwd)
-        : buildScenarioCmd(item.label, cwd);
+      let command: string;
+      switch (level) {
+        case 'feature':
+          command = buildFeatureCmd(path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/'), cwd);
+          break;
+        case 'outline':
+          command = buildScenarioCmd(outlineFilter(item.label), cwd);
+          break;
+        case 'example':
+          command = buildScenarioCmd(item.label, cwd);
+          break;
+        default: // scenario
+          command = buildScenarioCmd(item.label, cwd);
+      }
 
       await this._execute(run, item, cwd, command, token);
     }
@@ -233,18 +278,10 @@ export class GherkinTestController {
   ): Promise<void> {
     return new Promise(resolve => {
       run.appendOutput(`\r\n\u25b6 ${command}\r\n\r\n`);
-
       const proc = spawn(command, [], { cwd, shell: true, env: { ...process.env } });
-
       token.onCancellationRequested(() => { proc.kill(); resolve(); });
-
-      proc.stdout?.on('data', (chunk: Buffer) => {
-        run.appendOutput(chunk.toString().replace(/\r?\n/g, '\r\n'));
-      });
-      proc.stderr?.on('data', (chunk: Buffer) => {
-        run.appendOutput(chunk.toString().replace(/\r?\n/g, '\r\n'));
-      });
-
+      proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
+      proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
         const report = parseReport(path.join(cwd, REPORT_RELATIVE));
         this._applyResults(run, item, report);
@@ -254,23 +291,47 @@ export class GherkinTestController {
   }
 
   private _applyResults(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport): void {
-    const level = itemLevel(item);
-    if (level === 'feature') {
-      item.children.forEach(scenarioItem => this._applyScenario(run, scenarioItem, report));
-    } else if (level === 'scenario') {
-      this._applyScenario(run, item, report);
+    switch (itemLevel(item)) {
+      case 'feature':
+        item.children.forEach(child => {
+          if (itemLevel(child) === 'outline') { this._applyOutline(run, child, report); }
+          else                                { this._applyScenario(run, child, report); }
+        });
+        break;
+      case 'outline':
+        this._applyOutline(run, item, report);
+        break;
+      case 'example':
+      case 'scenario':
+        this._applyScenario(run, item, report);
+        break;
+    }
+  }
+
+  private _applyOutline(run: vscode.TestRun, outlineItem: vscode.TestItem, report: ParsedReport): void {
+    let failed = false;
+    let totalMs = 0;
+
+    outlineItem.children.forEach(exampleItem => {
+      this._applyScenario(run, exampleItem, report);
+      const parsed = report.scenarios.get(exampleItem.label);
+      if (parsed) {
+        totalMs += parsed.durationMs;
+        if (parsed.overallStatus !== 'passed') { failed = true; }
+      }
+    });
+
+    if (failed) {
+      run.failed(outlineItem, new vscode.TestMessage('One or more examples failed'), totalMs);
+    } else {
+      run.passed(outlineItem, totalMs);
     }
   }
 
   private _applyScenario(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport): void {
     const parsed = report.scenarios.get(item.label);
-    if (!parsed) {
-      run.skipped(item);
-      item.children.forEach(c => run.skipped(c));
-      return;
-    }
+    if (!parsed) { run.skipped(item); item.children.forEach(c => run.skipped(c)); return; }
 
-    // Apply per-step results
     const stepItems: vscode.TestItem[] = [];
     item.children.forEach(c => stepItems.push(c));
 
@@ -278,33 +339,24 @@ export class GherkinTestController {
       const stepResult = parsed.steps[idx];
       if (!stepResult) { run.skipped(stepItem); return; }
 
-      // Associate output with this specific step — visible when step is clicked in Test Results
       const icon = stepResult.status === 'passed' ? '✓' : stepResult.status === 'failed' ? '✗' : '–';
       const dur  = stepResult.durationMs > 0 ? ` (${stepResult.durationMs}ms)` : '';
-      let stepLog = `${icon} ${stepResult.keyword} ${stepResult.name}${dur}\r\n`;
+      let log = `${icon} ${stepResult.keyword} ${stepResult.name}${dur}\r\n`;
       if (stepResult.errorMessage) {
-        stepLog += `\r\n${stepResult.errorMessage.replace(/\r?\n/g, '\r\n')}\r\n`;
+        log += `\r\n${stepResult.errorMessage.replace(/\r?\n/g, '\r\n')}\r\n`;
       }
-      run.appendOutput(stepLog, undefined, stepItem);
+      run.appendOutput(log, undefined, stepItem);
 
-      if (stepResult.status === 'passed') {
-        run.passed(stepItem, stepResult.durationMs);
-      } else if (stepResult.status === 'failed') {
-        const msg = new vscode.TestMessage(stepResult.errorMessage ?? 'Step failed');
-        run.failed(stepItem, msg, stepResult.durationMs);
-      } else {
-        run.skipped(stepItem);
-      }
+      if (stepResult.status === 'passed')      { run.passed(stepItem, stepResult.durationMs); }
+      else if (stepResult.status === 'failed') { run.failed(stepItem, new vscode.TestMessage(stepResult.errorMessage ?? 'Step failed'), stepResult.durationMs); }
+      else                                     { run.skipped(stepItem); }
     });
 
-    // Scenario-level status
     if (parsed.overallStatus === 'passed') {
       run.passed(item, parsed.durationMs);
     } else if (parsed.overallStatus === 'failed') {
       const msg = new vscode.TestMessage(buildFailureMessage(parsed));
-      if (item.uri && item.range) {
-        msg.location = new vscode.Location(item.uri, item.range.start);
-      }
+      if (item.uri && item.range) { msg.location = new vscode.Location(item.uri, item.range.start); }
       run.failed(item, msg, parsed.durationMs);
     } else {
       run.skipped(item);
