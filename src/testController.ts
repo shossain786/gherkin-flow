@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { parseFeatureFile } from './featureParser';
 import { parseReport, ParsedReport, ParsedScenario } from './reportParser';
+import { InlineDecorationProvider, FailedStep } from './inlineDecorationProvider';
 
 const IS_WIN = process.platform === 'win32';
 const REPORT_RELATIVE = path.join('target', 'cucumber-report.json');
@@ -100,9 +101,12 @@ export class GherkinTestController {
   private readonly ctrl: vscode.TestController;
   private readonly watcher: vscode.FileSystemWatcher;
   private readonly featureItems = new Map<string, vscode.TestItem>();
-  private readonly scenarioTags  = new Map<string, string[]>(); // itemId → tags
+  private readonly scenarioTags  = new Map<string, string[]>();
+  private readonly stepLines     = new Map<string, number>(); // stepItemId → line
+  private readonly decorations: InlineDecorationProvider;
 
-  constructor(context: vscode.ExtensionContext) {
+  constructor(context: vscode.ExtensionContext, decorations: InlineDecorationProvider) {
+    this.decorations = decorations;
     this.ctrl = vscode.tests.createTestController('gherkinFlow', 'Gherkin Flow');
     context.subscriptions.push(this.ctrl);
 
@@ -220,11 +224,13 @@ export class GherkinTestController {
   private _addSteps(
     parent: vscode.TestItem,
     parentId: string,
-    steps: { keyword: string; text: string }[],
+    steps: { keyword: string; text: string; line?: number }[],
     uri: vscode.Uri
   ): void {
     steps.forEach((step, i) => {
-      const stepItem = this.ctrl.createTestItem(`${parentId}::${i}`, `${step.keyword} ${step.text}`, uri);
+      const id = `${parentId}::${i}`;
+      const stepItem = this.ctrl.createTestItem(id, `${step.keyword} ${step.text}`, uri);
+      if (step.line !== undefined) { this.stepLines.set(id, step.line); }
       parent.children.add(stepItem);
     });
   }
@@ -234,6 +240,9 @@ export class GherkinTestController {
     this.featureItems.delete(uri.fsPath);
     for (const key of this.scenarioTags.keys()) {
       if (key.startsWith(uri.fsPath)) { this.scenarioTags.delete(key); }
+    }
+    for (const key of this.stepLines.keys()) {
+      if (key.startsWith(uri.fsPath)) { this.stepLines.delete(key); }
     }
   }
 
@@ -301,6 +310,7 @@ export class GherkinTestController {
       proc.on('close', () => {
         const report = parseReport(path.join(cwd, REPORT_RELATIVE));
         this._applyResults(run, item, report);
+        if (item.uri) { this._applyInlineDecorations(item, report); }
         resolve();
       });
     });
@@ -377,6 +387,36 @@ export class GherkinTestController {
     } else {
       run.skipped(item);
     }
+  }
+
+  private _collectScenarioItems(item: vscode.TestItem): vscode.TestItem[] {
+    const level = itemLevel(item);
+    if (level === 'scenario' || level === 'example') { return [item]; }
+    const result: vscode.TestItem[] = [];
+    item.children.forEach(child => result.push(...this._collectScenarioItems(child)));
+    return result;
+  }
+
+  private _applyInlineDecorations(item: vscode.TestItem, report: ParsedReport): void {
+    if (!item.uri) { return; }
+    const failures: FailedStep[] = [];
+
+    for (const scenarioItem of this._collectScenarioItems(item)) {
+      const parsed = report.scenarios.get(scenarioItem.label);
+      if (!parsed) { continue; }
+      const stepItems: vscode.TestItem[] = [];
+      scenarioItem.children.forEach(c => stepItems.push(c));
+      stepItems.forEach((stepItem, idx) => {
+        const stepResult = parsed.steps[idx];
+        if (stepResult?.status === 'failed' && stepResult.errorMessage) {
+          const line = this.stepLines.get(stepItem.id);
+          if (line !== undefined) { failures.push({ line, error: stepResult.errorMessage }); }
+        }
+      });
+    }
+
+    this.decorations.clearFailures(item.uri);
+    if (failures.length > 0) { this.decorations.setFailures(item.uri, failures); }
   }
 
   private _fallback(command: string, uri: vscode.Uri): void {

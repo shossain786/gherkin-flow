@@ -4,6 +4,7 @@ import { GherkinTestController } from './testController';
 import { StepDefinitionIndex, GherkinDefinitionProvider } from './stepDefinitionProvider';
 import { GherkinDiagnosticsProvider } from './diagnosticsProvider';
 import { GherkinCompletionProvider } from './completionProvider';
+import { InlineDecorationProvider } from './inlineDecorationProvider';
 
 const SCENARIO_REGEX = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX  = /^\s*Feature:\s*(.*)$/i;
@@ -81,7 +82,8 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
 }
 
 export async function activate(context: vscode.ExtensionContext) {
-  const controller = new GherkinTestController(context);
+  const decorations = new InlineDecorationProvider(context);
+  const controller = new GherkinTestController(context, decorations);
 
   vscode.window.visibleTextEditors.forEach(applyDecorations);
 
