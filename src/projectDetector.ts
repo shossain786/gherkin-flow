@@ -32,12 +32,13 @@ function hasNodeConfig(cwd: string): boolean {
 
 function nodeConfig(cwd: string): ProjectConfig {
   const fmt = hasNodeConfig(cwd) ? '' : ' --format json:reports/cucumber.json';
-  const safe = (s: string) => s.replace(/"/g, '\\"');
+  const safePath   = (s: string) => s.replace(/"/g, '\\"');
+  const safeFilter = (s: string) => s.replace(/"/g, '.');
   return {
     type: 'node',
-    buildScenarioCmd: (name, feat) => `npx cucumber-js${feat ? ` "${safe(feat)}"` : ''} --name "${safe(name)}"${fmt}`,
+    buildScenarioCmd: (name, feat) => `npx cucumber-js${feat ? ` "${safePath(feat)}"` : ''} --name "${safeFilter(name)}"${fmt}`,
     buildFeatureCmd:  (rel)  => `npx cucumber-js "${rel}"${fmt}`,
-    buildTagCmd:      (tag)  => `npx cucumber-js --tags "${safe(tag)}"${fmt}`,
+    buildTagCmd:      (tag)  => `npx cucumber-js --tags "${safeFilter(tag)}"${fmt}`,
     reportPath:  path.join('reports', 'cucumber.json'),
     stepFileGlob: '**/*.{ts,js}',
   };
@@ -49,32 +50,34 @@ function gradleExe(): string {
 }
 
 function gradleConfig(exe: string): ProjectConfig {
-  const safe = (s: string) => s.replace(/"/g, '\\"');
+  const safePath   = (s: string) => s.replace(/"/g, '\\"');
+  const safeFilter = (s: string) => s.replace(/"/g, '.');
   return {
     type: 'java-gradle',
     buildScenarioCmd: (name, feat) => [
       `${exe} test`,
-      feat ? `"-Pcucumber.features=${safe(feat)}"` : '',
-      `"-Pcucumber.filter.name=${safe(name)}"`
+      feat ? `"-Pcucumber.features=${safePath(feat)}"` : '',
+      `"-Pcucumber.filter.name=${safeFilter(name)}"`
     ].filter(Boolean).join(' '),
-    buildFeatureCmd:  (rel)  => `${exe} test "-Pcucumber.features=${safe(rel)}"`,
-    buildTagCmd:      (tag)  => `${exe} test "-Pcucumber.filter.tags=${safe(tag)}"`,
+    buildFeatureCmd:  (rel)  => `${exe} test "-Pcucumber.features=${safePath(rel)}"`,
+    buildTagCmd:      (tag)  => `${exe} test "-Pcucumber.filter.tags=${safeFilter(tag)}"`,
     reportPath:  path.join('target', 'cucumber-report.json'),
     stepFileGlob: '**/*.java',
   };
 }
 
 function mavenConfig(exe: string): ProjectConfig {
-  const safe = (s: string) => s.replace(/"/g, '\\"');
+  const safePath   = (s: string) => s.replace(/"/g, '\\"');
+  const safeFilter = (s: string) => s.replace(/"/g, '.');
   return {
     type: 'java-maven',
     buildScenarioCmd: (name, feat) => [
       `${exe} test`,
-      feat ? `"-Dcucumber.features=${safe(feat)}"` : '',
-      `"-Dcucumber.filter.name=${safe(name)}"`
+      feat ? `"-Dcucumber.features=${safePath(feat)}"` : '',
+      `"-Dcucumber.filter.name=${safeFilter(name)}"`
     ].filter(Boolean).join(' '),
-    buildFeatureCmd:  (rel)  => `${exe} test "-Dcucumber.features=${safe(rel)}"`,
-    buildTagCmd:      (tag)  => `${exe} test "-Dcucumber.filter.tags=${safe(tag)}"`,
+    buildFeatureCmd:  (rel)  => `${exe} test "-Dcucumber.features=${safePath(rel)}"`,
+    buildTagCmd:      (tag)  => `${exe} test "-Dcucumber.filter.tags=${safeFilter(tag)}"`,
     reportPath:  path.join('target', 'cucumber-report.json'),
     stepFileGlob: '**/*.java',
   };
