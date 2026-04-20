@@ -121,6 +121,12 @@ No configuration required. The extension auto-activates when a workspace contain
 
 ## Release Notes
 
+### 0.6.0
+Gherkin syntax highlighting — proper TextMate grammar with coloured keywords, tags, strings, table cells, docstrings, and outline parameters.
+
+### 0.5.1
+README documentation update.
+
 ### 0.5.0
 Inline failure decoration — failed steps highlighted with red background and inline error text.
 
