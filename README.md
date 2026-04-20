@@ -4,20 +4,34 @@ Run Cucumber scenarios directly from `.feature` files in VS Code — with step-b
 
 ## Screenshots
 
-![CodeLens Run Buttons](images/highligh-run-btn.png)
-*▶ Run Scenario and tag buttons appear inline above every scenario*
-
-![Run Buttons in Feature File](images/run-btn.png)
-*Run buttons on all scenarios with Scenario Outline support*
-
-![Step-by-Step Results](images/step-by-step-visual.png)
-*Step-by-step pass/fail results in the Test Explorer panel*
-
-![Inline Failure Decoration](images/failures-in-secnario-display.png)
-*Failed steps highlighted with inline error message in the editor*
-
-![Missing Step Detection](images/undefined-step-highlight.png)
-*Unmatched steps underlined with warning — autocomplete suggestions on the right*
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="images/highligh-run-btn.png" alt="CodeLens Run Buttons" width="100%"/>
+      <br/><sub><b>▶ CodeLens Run Buttons</b><br/>Inline run buttons above every scenario and tag</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="images/run-btn.png" alt="Run Buttons in Feature File" width="100%"/>
+      <br/><sub><b>▶ Run Feature File</b><br/>Run all scenarios with Scenario Outline support</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="images/step-by-step-visual.png" alt="Step-by-Step Results" width="100%"/>
+      <br/><sub><b>🧪 Step-by-Step Results</b><br/>Pass/fail status per step in the Test Explorer panel</sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="images/failures-in-secnario-display.png" alt="Inline Failure Decoration" width="100%"/>
+      <br/><sub><b>🔴 Inline Failure Decoration</b><br/>Failed steps highlighted with inline error text</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" colspan="2">
+      <img src="images/undefined-step-highlight.png" alt="Missing Step Detection" width="50%"/>
+      <br/><sub><b>⚠️ Missing Step Detection</b><br/>Unmatched steps underlined — autocomplete suggestions shown</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
