@@ -8,6 +8,7 @@ export interface ParsedStep {
   status: StepStatus;
   durationMs: number;
   errorMessage?: string;
+  output?: string[];
 }
 
 export interface ParsedScenario {
@@ -25,6 +26,7 @@ interface RawStep {
   keyword: string;
   name: string;
   result?: { status?: string; duration?: number; error_message?: string };
+  output?: string[];
 }
 
 interface RawElement {
@@ -58,7 +60,8 @@ export function parseReport(reportPath: string): ParsedReport {
       name: String(s.name ?? ''),
       status: (s.result?.status ?? 'undefined') as StepStatus,
       durationMs: Math.round((s.result?.duration ?? 0) / 1_000_000),
-      errorMessage: s.result?.error_message ? String(s.result.error_message) : undefined
+      errorMessage: s.result?.error_message ? String(s.result.error_message) : undefined,
+      output: s.output && s.output.length > 0 ? s.output : undefined
     });
 
     for (const feature of features) {

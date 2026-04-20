@@ -335,6 +335,9 @@ export class GherkinTestController {
       const icon = stepResult.status === 'passed' ? '✓' : stepResult.status === 'failed' ? '✗' : '–';
       const dur  = stepResult.durationMs > 0 ? ` (${stepResult.durationMs}ms)` : '';
       let log = `${icon} ${stepResult.keyword} ${stepResult.name}${dur}\r\n`;
+      if (stepResult.output && stepResult.output.length > 0) {
+        log += stepResult.output.map(o => o.replace(/\r?\n/g, '\r\n')).join('\r\n') + '\r\n';
+      }
       if (stepResult.errorMessage) {
         log += `\r\n${stepResult.errorMessage.replace(/\r?\n/g, '\r\n')}\r\n`;
       }

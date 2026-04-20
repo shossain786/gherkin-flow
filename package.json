@@ -2,7 +2,7 @@
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
   "description": "Run Cucumber scenarios directly from .feature files in VS Code — with step-by-step results, CodeLens run buttons, and Test Explorer integration.",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {

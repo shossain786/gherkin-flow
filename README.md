@@ -140,6 +140,9 @@ No configuration required. The extension auto-activates when a workspace contain
 
 ## Release Notes
 
+### 0.7.4
+Fix: clicking a step in Test Explorer now shows `System.out.println` and log output captured during that step — parsed from the `output` field in the Cucumber JSON report.
+
 ### 0.7.3
 Fix: scenario names containing double quotes (`"`) no longer break the run command — quotes are replaced with `.` (regex wildcard) in the Cucumber filter, which matches correctly without shell quoting issues.
 
