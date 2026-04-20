@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { GherkinTestController } from './testController';
-import { StepDefinitionIndex, GherkinDefinitionProvider } from './stepDefinitionProvider';
+import { StepDefinitionIndex, GherkinDefinitionProvider, GherkinHoverProvider } from './stepDefinitionProvider';
 import { GherkinDiagnosticsProvider } from './diagnosticsProvider';
 import { GherkinCompletionProvider } from './completionProvider';
 import { InlineDecorationProvider } from './inlineDecorationProvider';
@@ -166,6 +166,11 @@ export async function activate(context: vscode.ExtensionContext) {
     new GherkinDefinitionProvider(stepIndex)
   );
 
+  const hoverProvider = vscode.languages.registerHoverProvider(
+    { pattern: '**/*.feature' },
+    new GherkinHoverProvider(stepIndex)
+  );
+
   const diagnosticsProvider = new GherkinDiagnosticsProvider(stepIndex, context);
   await diagnosticsProvider.initialScan();
 
@@ -184,6 +189,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     completionProvider,
     codeActionProvider,
+    hoverProvider,
     runScenarioAtCursor,
     runFeatureAtCursor,
     runScenarioByName,

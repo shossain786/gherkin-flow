@@ -78,6 +78,19 @@ After a test run, failed step lines are highlighted with a red background and th
 
 Decorations clear automatically on the next run.
 
+### 💬 Step Hover Tooltip
+Hover any Gherkin step to instantly see the matched step definition pattern, the source file and line number, and the Javadoc/JSDoc comment (if one is written above the method):
+
+```
+@Given("I enter {string} in {string}")
+LoginSteps.java:42
+
+---
+Enters text into a named form field.
+@param value   the text to type
+@param field   the field label
+```
+
 ### 🔗 Step Definition Jump
 **Ctrl+click** any Gherkin step to jump directly to the matching Java step definition method. Supports both Cucumber Expressions (`{string}`, `{int}`) and regex patterns. Automatically updates when Java files change.
 
@@ -165,6 +178,9 @@ No configuration required. The extension auto-activates when a workspace contain
 ---
 
 ## Release Notes
+
+### 0.9.0
+Step hover tooltip — hovering any Gherkin step shows the matched pattern from the step definition file, its file location, and the Javadoc/JSDoc comment if one is present above the step definition method.
 
 ### 0.8.2
 Fix: the light bulb quick fix now correctly includes `DataTable`/`DocString` parameters — previously only the CodeLens path detected them; the quick fix path rebuilt the step without checking the following lines.

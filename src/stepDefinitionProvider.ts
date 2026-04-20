@@ -10,6 +10,25 @@ interface StepDefinition {
   pattern: RegExp;
   rawPattern: string;
   location: vscode.Location;
+  docComment?: string;
+}
+
+function extractDocComment(lines: string[], annotationLine: number): string | undefined {
+  let end = annotationLine - 1;
+  while (end >= 0 && lines[end].trim() === '') { end--; }
+  if (end < 0 || !lines[end].trim().endsWith('*/')) { return undefined; }
+  let start = end;
+  while (start >= 0 && !lines[start].trim().startsWith('/**')) { start--; }
+  if (start < 0) { return undefined; }
+  const cleaned = lines.slice(start, end + 1).map(l => {
+    const t = l.trim();
+    if (t === '/**' || t === '*/') { return ''; }
+    if (t.startsWith('* ')) { return t.slice(2); }
+    if (t === '*') { return ''; }
+    return t;
+  });
+  const result = cleaned.join('\n').trim();
+  return result || undefined;
 }
 
 function escapeRegex(s: string): string {
@@ -60,8 +79,16 @@ export class StepDefinitionIndex {
   }
 
   find(stepText: string): vscode.Location | undefined {
+    return this._findDef(stepText)?.location;
+  }
+
+  findDef(stepText: string): StepDefinition | undefined {
+    return this._findDef(stepText);
+  }
+
+  private _findDef(stepText: string): StepDefinition | undefined {
     for (const def of this._defs) {
-      if (def.pattern.test(stepText)) { return def.location; }
+      if (def.pattern.test(stepText)) { return def; }
     }
     return undefined;
   }
@@ -94,7 +121,8 @@ export class StepDefinitionIndex {
       const line = text.slice(0, matchIndex).split('\n').length - 1;
       try {
         const pattern = isRegex ? new RegExp(rawPattern, 'i') : cucumberExpressionToRegex(rawPattern);
-        defs.push({ pattern, rawPattern, location: new vscode.Location(uri, new vscode.Range(line, 0, line, lines[line]?.length ?? 0)) });
+        const docComment = extractDocComment(lines, line);
+        defs.push({ pattern, rawPattern, location: new vscode.Location(uri, new vscode.Range(line, 0, line, lines[line]?.length ?? 0)), docComment });
       } catch { /* invalid regex — skip */ }
     };
 
@@ -121,6 +149,36 @@ export class StepDefinitionIndex {
     if (!existing) { return; }
     this._defs = this._defs.filter(d => !existing.includes(d));
     this._defsByFile.delete(uri.fsPath);
+  }
+}
+
+export class GherkinHoverProvider implements vscode.HoverProvider {
+  constructor(private readonly _index: StepDefinitionIndex) {}
+
+  provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.Hover | undefined {
+    const line = document.lineAt(position.line).text;
+    const match = line.match(STEP_RE);
+    if (!match) { return undefined; }
+    const def = this._index.findDef(match[2].trim());
+    if (!def) { return undefined; }
+
+    const md = new vscode.MarkdownString(undefined, true);
+    md.isTrusted = true;
+
+    const ext = def.location.uri.fsPath.split('.').pop()?.toLowerCase() ?? 'java';
+    const lang = ext === 'ts' ? 'typescript' : ext === 'js' ? 'javascript' : 'java';
+    md.appendCodeblock(def.rawPattern, lang);
+
+    const relPath = vscode.workspace.asRelativePath(def.location.uri.fsPath);
+    const lineNo = def.location.range.start.line + 1;
+    md.appendMarkdown(`\n*${relPath}:${lineNo}*`);
+
+    if (def.docComment) {
+      md.appendMarkdown('\n\n---\n\n');
+      md.appendMarkdown(def.docComment);
+    }
+
+    return new vscode.Hover(md);
   }
 }
 
