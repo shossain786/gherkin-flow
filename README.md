@@ -1,6 +1,26 @@
 # Gherkin Flow
 
-Run Cucumber scenarios directly from `.feature` files in VS Code — with step-by-step results, CodeLens run buttons, step definition navigation, autocomplete, and inline failure decorations.
+**Debug Gherkin tests 5× faster — without leaving VS Code.**
+
+> Built for **QA Automation Engineers** and **BDD teams** who write Cucumber scenarios daily and want their editor to actively support their workflow — not just display files.
+
+---
+
+## The Problem
+
+Your Gherkin test fails. Now what?
+
+1. Scroll through 300 lines of Maven output to find which step broke
+2. Copy the error, manually search across Java files
+3. Open the file, fix the step, switch back to the terminal
+4. Re-run the entire suite and wait again
+5. Repeat — ten times a day
+
+That's not a test workflow. That's a context-switch tax.
+
+**GherkinFlow eliminates every one of those switches.** Run, inspect, navigate, and fix — all from the feature file.
+
+---
 
 ## Screenshots
 
@@ -8,67 +28,85 @@ Run Cucumber scenarios directly from `.feature` files in VS Code — with step-b
   <tr>
     <td align="center" width="50%">
       <img src="images/highligh-run-btn.png" alt="CodeLens Run Buttons" width="100%"/>
-      <br/><sub><b>▶ CodeLens Run Buttons</b><br/>Inline run buttons above every scenario and tag</sub>
+      <br/><sub><b>▶ One-Click Run</b><br/>Run buttons appear inline above every scenario — no terminal needed</sub>
     </td>
     <td align="center" width="50%">
       <img src="images/run-btn.png" alt="Run Buttons in Feature File" width="100%"/>
-      <br/><sub><b>▶ Run Feature File</b><br/>Run all scenarios with Scenario Outline support</sub>
+      <br/><sub><b>▶ Run Feature File</b><br/>Run all scenarios including Scenario Outline examples</sub>
     </td>
   </tr>
   <tr>
     <td align="center" width="50%">
       <img src="images/step-by-step-visual.png" alt="Step-by-Step Results" width="100%"/>
-      <br/><sub><b>🧪 Step-by-Step Results</b><br/>Pass/fail status per step in the Test Explorer panel</sub>
+      <br/><sub><b>🧪 Step-by-Step Results</b><br/>See exactly which step passed or failed — with timing</sub>
     </td>
     <td align="center" width="50%">
       <img src="images/failures-in-secnario-display.png" alt="Inline Failure Decoration" width="100%"/>
-      <br/><sub><b>🔴 Inline Failure Decoration</b><br/>Failed steps highlighted with inline error text</sub>
+      <br/><sub><b>🔴 Failure Right in Your File</b><br/>Error message shown as inline ghost text on the failed step</sub>
     </td>
   </tr>
   <tr>
     <td align="center" colspan="2">
       <img src="images/undefined-step-highlight.png" alt="Missing Step Detection" width="50%"/>
-      <br/><sub><b>⚠️ Missing Step Detection</b><br/>Unmatched steps underlined — autocomplete suggestions shown</sub>
+      <br/><sub><b>⚠️ Missing Step Detection</b><br/>Undefined steps underlined before you even run — with autocomplete</sub>
     </td>
   </tr>
 </table>
+
+<!-- TODO: replace screenshots above with GIF demos for higher impact:
+     GIF 1 — Click ▶ Run Scenario, watch step-by-step results appear in Test Explorer
+     GIF 2 — Ctrl+click a step, jump to its Java/TS definition
+     GIF 3 — Hover a step, see the matched pattern + Javadoc tooltip
+     GIF 4 — Click ⚡ Generate Missing Steps, pick a file, stubs appear
+-->
+
+---
+
+## Why GherkinFlow?
+
+| Without GherkinFlow | With GherkinFlow |
+|---|---|
+| Run tests from the terminal | Click **▶** directly above any scenario |
+| Scroll terminal output to find failures | See pass/fail **per step** in Test Explorer |
+| Search Java files manually for step definitions | **Ctrl+click** any step to jump instantly |
+| No editor feedback while writing steps | **Autocomplete** from your existing definitions |
+| Undefined steps only fail at runtime | **Underline warning** appears as you type |
+| Write stub boilerplate by hand | **Generate all missing stubs** in one click |
+| No context when reading a step | **Hover** shows the matched pattern + doc comment |
 
 ---
 
 ## Features
 
-### ▶ CodeLens Run Buttons
-Clickable **▶ Run Scenario** and **▶️ Run Feature** buttons appear inline above every scenario and feature line — no right-clicking needed.
+### ▶ One-Click Run — No Terminal Needed
+Clickable **▶ Run Scenario** and **▶️ Run Feature** buttons appear inline above every scenario. Tag buttons appear automatically for tagged scenarios — run `@smoke` or `@regression` directly from the file.
 
-Tag buttons appear automatically when scenarios have tags:
 ```
 @smoke @regression
 ▶ Run Scenario  ▶ @smoke  ▶ @regression
 Scenario: Admin login
 ```
 
-### 🧪 Test Explorer Integration
-Full VS Code Testing panel support with a hierarchical tree view:
+You can also right-click anywhere in a feature file:
+- **Run Scenario (GherkinFlow)** — runs the scenario at your cursor
+- **Run Feature File (GherkinFlow)** — runs all scenarios in the file
+
+### 🧪 Know Exactly Which Step Failed
+The VS Code Testing panel shows a full hierarchical tree with pass ✓ / fail ✗ per step and execution time. Click any failed step to see the full error message, stack trace, and `System.out.println` / log output captured during that step.
+
 ```
 ▼ Feature: Login
-  ▼ ✓ Scenario: Admin login         (320ms)
+  ▼ ✗ Scenario: Admin login         (320ms)
       ✓ Given I am on the login page
       ✓ When I enter admin credentials
-      ✓ Then I see the dashboard
+      ✗ Then I see the dashboard     ← AssertionError: expected 'Login' but was 'Dashboard'
   ▼ Scenario Outline: Login as <role>
     ▼ ✓ Login as admin
         ✓ Given I log in as "admin"
-        ✓ Then I see the admin view
-    ▼ ✓ Login as user
-        ✓ Given I log in as "user"
-        ✓ Then I see the user view
 ```
 
-### 📋 Step-by-Step Results
-Each step shows its individual pass ✓ / fail ✗ status and execution time. Click any failed step to see the full error message and stack trace.
-
-### 🔴 Inline Failure Decoration
-After a test run, failed step lines are highlighted with a red background and the error message is shown as inline ghost text — without leaving the feature file.
+### 🔴 See the Error Without Leaving the File
+After a run, failed steps are highlighted with a red background and the error message is shown as inline ghost text — right on the line that broke. No switching windows, no scrolling logs.
 
 ```
   ✓ Given I am on the login page
@@ -78,39 +116,40 @@ After a test run, failed step lines are highlighted with a red background and th
 
 Decorations clear automatically on the next run.
 
-### 💬 Step Hover Tooltip
-Hover any Gherkin step to instantly see the matched step definition pattern, the source file and line number, and the Javadoc/JSDoc comment (if one is written above the method):
+### 💬 Hover to Inspect Any Step
+Hover any Gherkin step to see the matched Cucumber expression, the source file and line number, and the Javadoc/JSDoc comment if one exists above the method.
 
 ```
 @Given("I enter {string} in {string}")
 LoginSteps.java:42
 
 ---
-Enters text into a named form field.
-@param value   the text to type
-@param field   the field label
+Enters text into a named input field.
+@param value  the text to type
+@param field  the field label
 ```
 
-### 🔗 Step Definition Jump
-**Ctrl+click** any Gherkin step to jump directly to the matching Java step definition method. Supports both Cucumber Expressions (`{string}`, `{int}`) and regex patterns. Automatically updates when Java files change.
+### 🔗 Ctrl+Click to Jump to the Definition
+**Ctrl+click** any step to jump directly to the matching Java, TypeScript, or JavaScript step definition. Supports both Cucumber Expressions (`{string}`, `{int}`) and regex patterns. Updates automatically when your step files change.
 
-### 💡 Gherkin Autocomplete
-Type `Given `, `When `, `Then ` etc. and get suggestions from your existing Java step definitions — with snippet placeholders for parameters.
+### 💡 Autocomplete from Your Own Codebase
+Type `Given `, `When `, `Then ` and get inline suggestions pulled from your existing step definitions — with snippet placeholders for parameters.
 
 ```
 Given I enter |
-              ↓ suggestions:
+              ↓
   ✦ I enter {string} in {string}
   ✦ I enter {int} items
 ```
 
-### ⚠️ Missing Step Detection
-Steps with no matching definition are underlined with a warning. Hover to see the message. All unmatched steps appear in the **Problems** panel (Ctrl+Shift+M).
+### ⚠️ Catch Missing Steps Before Running
+Steps with no matching definition are underlined with a warning as you write them — not after a failed run. Hover the underline to see the message. All unmatched steps also appear in the **Problems** panel (Ctrl+Shift+M).
 
-### ⚡ Generate Step Definitions
-When a feature file has unmatched steps, a `⚡ Generate Missing Steps (N)` button appears on the Feature line. Click it to generate all missing stubs at once — pick an existing step definition file or create a new one. A light bulb quick fix on each underlined step offers single or bulk generation.
+### ⚡ Generate All Missing Stubs in One Click
+A `⚡ Generate Missing Steps (N)` button appears on the Feature line when unmatched steps exist. Click it to generate all stubs at once — pick an existing step file or create a new one. A light bulb quick fix on each underlined step also offers single or bulk generation.
 
-Generated stubs include correct annotations, parameter types, and file headers for Java, TypeScript, and JavaScript:
+Generated stubs include correct annotations, parameter types (including `DataTable` and `DocString`), and file headers for Java, TypeScript, and JavaScript:
+
 ```java
 @Given("I enter {string} in {string}")
 public void iEnterInField(String arg0, String arg1) {
@@ -119,24 +158,31 @@ public void iEnterInField(String arg0, String arg1) {
 }
 ```
 
-### 🎨 Visual Decorations
-Scenario lines are highlighted with a green left border and subtle background, making them easy to spot in large feature files.
-
-### 🔧 Build Tool Auto-Detection
-Automatically detects and uses the right tool — no configuration needed:
+### 🔧 Zero-Config Build Detection
+Automatically detects your build tool — no configuration file needed:
 
 | Tool | Detected by |
 |---|---|
-| `./gradlew` / `gradlew.bat` | `gradlew` / `gradlew.bat` in project root |
-| `gradle` | `gradle` in project root |
-| `./mvnw` / `mvnw.cmd` | `mvnw` / `mvnw.cmd` in project root |
-| `mvn` | `pom.xml` in project root (fallback) |
+| `./gradlew` / `gradlew.bat` | wrapper in project root |
+| `mvn` / `./mvnw` | `pom.xml` or wrapper in project root |
+| `npx cucumber-js` | `@cucumber/cucumber` in `package.json` |
+
+---
+
+## Quick Start
+
+1. Open any workspace containing `.feature` files — the extension activates automatically
+2. Click **▶ Run Scenario** above any scenario
+3. Watch results appear step-by-step in the **Testing** panel (flask icon in the Activity Bar)
+4. Click a failed step to read the error and stack trace
+5. **Ctrl+click** any step to jump to its implementation
 
 ---
 
 ## Requirements
 
-- A Java project using **Cucumber JVM 7+**
+### Java (Maven / Gradle)
+- Cucumber JVM 7+
 - Maven or Gradle as the build tool
 - A Cucumber JSON reporter writing to `target/cucumber-report.json`
 
@@ -147,40 +193,29 @@ Add the JSON reporter to your runner if not already present:
 )
 ```
 
----
-
-## Usage
-
-1. Open a workspace containing `.feature` files
-2. Click **▶ Run Scenario** above any scenario, or **▶️ Run Feature** at the top
-3. View results in the **Testing** panel (flask icon in Activity Bar)
-4. Click any step to see its log output
-5. **Ctrl+click** any step to jump to its Java implementation
-
-### Right-click menu
-Right-click anywhere inside a `.feature` file for:
-- **Run Scenario (GherkinFlow)** — runs the scenario at the cursor
-- **Run Feature File (GherkinFlow)** — runs all scenarios in the file
+### JavaScript / TypeScript
+- `@cucumber/cucumber` in `package.json`
+- The extension auto-detects and runs via `npx cucumber-js`
+- JSON output written to `reports/cucumber.json` (configured automatically if no `cucumber.js` config file is found)
 
 ---
 
-## Extension Settings
+## Roadmap
 
-No configuration required. The extension auto-activates when a workspace contains `.feature` files.
+These are planned or under consideration. Contributions and feature requests welcome via [GitHub Issues](https://github.com/shossain786/gherkin-flow/issues).
 
----
-
-## Known Limitations
-
-- Requires the Cucumber JSON report at `target/cucumber-report.json`
-- Currently supports Java (Maven/Gradle) projects only
+- [ ] **Re-run failed scenarios only** — one click to re-run just the failures from the last run
+- [ ] **Tags sidebar panel** — browse and filter all scenarios by tag across the workspace
+- [ ] **Scenario history** — track pass/fail trends per scenario across multiple runs
+- [ ] **Allure report integration** — read Allure JSON alongside the Cucumber JSON report
+- [ ] **Parallel run support** — merge results from parallel Cucumber executions
 
 ---
 
 ## Release Notes
 
 ### 0.9.0
-Step hover tooltip — hovering any Gherkin step shows the matched pattern from the step definition file, its file location, and the Javadoc/JSDoc comment if one is present above the step definition method.
+Step hover tooltip — hovering any Gherkin step shows the matched Cucumber pattern, the step definition file and line number, and the Javadoc/JSDoc comment if one is present above the method.
 
 ### 0.8.2
 Fix: the light bulb quick fix now correctly includes `DataTable`/`DocString` parameters — previously only the CodeLens path detected them; the quick fix path rebuilt the step without checking the following lines.
@@ -208,9 +243,6 @@ JavaScript/TypeScript Cucumber support — auto-detects `@cucumber/cucumber` pro
 
 ### 0.6.0
 Gherkin syntax highlighting — proper TextMate grammar with coloured keywords, tags, strings, table cells, docstrings, and outline parameters.
-
-### 0.5.1
-README documentation update.
 
 ### 0.5.0
 Inline failure decoration — failed steps highlighted with red background and inline error text.
