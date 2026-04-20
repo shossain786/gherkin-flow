@@ -140,6 +140,9 @@ No configuration required. The extension auto-activates when a workspace contain
 
 ## Release Notes
 
+### 0.7.2
+Fix: scenario run command now includes feature file path (`-Dcucumber.features`) so projects with Maven runner class configuration work correctly.
+
 ### 0.7.1
 Added Marketplace screenshots showcasing all key features.
 

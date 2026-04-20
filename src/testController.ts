@@ -97,8 +97,10 @@ export class GherkinTestController {
 
   // Public API for CodeLens
   public async runScenario(scenarioName: string, uri: vscode.Uri): Promise<void> {
+    const cwd = getWorkspacePath(uri);
+    const featRel = path.relative(cwd, uri.fsPath).replace(/\\/g, '/');
     const featureItem = this.featureItems.get(uri.fsPath);
-    if (!featureItem) { this._fallback(this._config.buildScenarioCmd(scenarioName), uri); return; }
+    if (!featureItem) { this._fallback(this._config.buildScenarioCmd(scenarioName, featRel), uri); return; }
 
     let target: vscode.TestItem | undefined;
     featureItem.children.forEach(child => {
@@ -110,7 +112,7 @@ export class GherkinTestController {
       }
     });
 
-    if (!target) { this._fallback(this._config.buildScenarioCmd(scenarioName), uri); return; }
+    if (!target) { this._fallback(this._config.buildScenarioCmd(scenarioName, featRel), uri); return; }
     await this._runHandler(new vscode.TestRunRequest([target]), new vscode.CancellationTokenSource().token);
   }
 
@@ -232,19 +234,20 @@ export class GherkinTestController {
       const level = itemLevel(item);
       this._markStarted(run, item);
 
+      const featRel = path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/');
       let command: string;
       switch (level) {
         case 'feature':
-          command = this._config.buildFeatureCmd(path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/'));
+          command = this._config.buildFeatureCmd(featRel);
           break;
         case 'outline':
-          command = this._config.buildScenarioCmd(outlineFilter(item.label));
+          command = this._config.buildScenarioCmd(outlineFilter(item.label), featRel);
           break;
         case 'example':
-          command = this._config.buildScenarioCmd(item.label);
+          command = this._config.buildScenarioCmd(item.label, featRel);
           break;
         default:
-          command = this._config.buildScenarioCmd(item.label);
+          command = this._config.buildScenarioCmd(item.label, featRel);
       }
 
       await this._execute(run, item, cwd, command, token);
