@@ -2,6 +2,25 @@
 
 Run Cucumber scenarios directly from `.feature` files in VS Code — with step-by-step results, CodeLens run buttons, step definition navigation, autocomplete, and inline failure decorations.
 
+## Screenshots
+
+![CodeLens Run Buttons](images/highligh-run-btn.png)
+*▶ Run Scenario and tag buttons appear inline above every scenario*
+
+![Run Buttons in Feature File](images/run-btn.png)
+*Run buttons on all scenarios with Scenario Outline support*
+
+![Step-by-Step Results](images/step-by-step-visual.png)
+*Step-by-step pass/fail results in the Test Explorer panel*
+
+![Inline Failure Decoration](images/failures-in-secnario-display.png)
+*Failed steps highlighted with inline error message in the editor*
+
+![Missing Step Detection](images/undefined-step-highlight.png)
+*Unmatched steps underlined with warning — autocomplete suggestions on the right*
+
+---
+
 ## Features
 
 ### ▶ CodeLens Run Buttons
@@ -120,6 +139,9 @@ No configuration required. The extension auto-activates when a workspace contain
 ---
 
 ## Release Notes
+
+### 0.7.1
+Added Marketplace screenshots showcasing all key features.
 
 ### 0.7.0
 JavaScript/TypeScript Cucumber support — auto-detects `@cucumber/cucumber` projects, runs via `npx cucumber-js`, scans `.ts`/`.js` step definitions for jump, autocomplete, and missing step detection.
