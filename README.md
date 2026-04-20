@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.1
+README overhaul — new headline, pain-to-solution hook, Why GherkinFlow comparison table, benefit-driven feature descriptions, roadmap section, and demo GIF.
+
 ### 0.9.0
 Step hover tooltip — hovering any Gherkin step shows the matched Cucumber pattern, the step definition file and line number, and the Javadoc/JSDoc comment if one is present above the method.
 
