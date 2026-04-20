@@ -6,7 +6,7 @@ const STEP_RE = /^\s*(Given|When|Then|And|But|\*)\s+(.*)/i;
 
 export class GherkinDiagnosticsProvider {
   private readonly _collection: vscode.DiagnosticCollection;
-  private readonly _javaWatcher: vscode.FileSystemWatcher;
+  private readonly _stepWatcher: vscode.FileSystemWatcher;
 
   constructor(
     private readonly _index: StepDefinitionIndex,
@@ -20,11 +20,11 @@ export class GherkinDiagnosticsProvider {
       vscode.workspace.onDidChangeTextDocument(e => this._update(e.document))
     );
 
-    this._javaWatcher = vscode.workspace.createFileSystemWatcher('**/*.java');
-    this._javaWatcher.onDidCreate(() => this._updateAll());
-    this._javaWatcher.onDidChange(() => this._updateAll());
-    this._javaWatcher.onDidDelete(() => this._updateAll());
-    context.subscriptions.push(this._javaWatcher);
+    this._stepWatcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js}');
+    this._stepWatcher.onDidCreate(() => this._updateAll());
+    this._stepWatcher.onDidChange(() => this._updateAll());
+    this._stepWatcher.onDidDelete(() => this._updateAll());
+    context.subscriptions.push(this._stepWatcher);
   }
 
   async initialScan(): Promise<void> {

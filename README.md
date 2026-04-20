@@ -121,6 +121,9 @@ No configuration required. The extension auto-activates when a workspace contain
 
 ## Release Notes
 
+### 0.7.0
+JavaScript/TypeScript Cucumber support — auto-detects `@cucumber/cucumber` projects, runs via `npx cucumber-js`, scans `.ts`/`.js` step definitions for jump, autocomplete, and missing step detection.
+
 ### 0.6.0
 Gherkin syntax highlighting — proper TextMate grammar with coloured keywords, tags, strings, table cells, docstrings, and outline parameters.
 

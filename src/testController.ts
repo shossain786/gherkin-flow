@@ -1,50 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
 import { spawn } from 'child_process';
 import { parseFeatureFile } from './featureParser';
 import { parseReport, ParsedReport, ParsedScenario } from './reportParser';
 import { InlineDecorationProvider, FailedStep } from './inlineDecorationProvider';
+import { detectProject, ProjectConfig } from './projectDetector';
 
-const IS_WIN = process.platform === 'win32';
-const REPORT_RELATIVE = path.join('target', 'cucumber-report.json');
 const OUTLINE_PREFIX = '[OUTLINE]';
-
-// --- Build tool helpers ---
-
-function existsIn(dir: string, file: string): boolean {
-  return fs.existsSync(path.join(dir, file));
-}
-
-function detectExecutable(cwd: string): { exe: string; isGradle: boolean } {
-  if (IS_WIN && existsIn(cwd, 'gradlew.bat')) { return { exe: 'gradlew.bat', isGradle: true  }; }
-  if (!IS_WIN && existsIn(cwd, 'gradlew'))    { return { exe: './gradlew',   isGradle: true  }; }
-  if (existsIn(cwd, 'gradle'))                { return { exe: 'gradle',      isGradle: true  }; }
-  if (IS_WIN && existsIn(cwd, 'mvnw.cmd'))    { return { exe: 'mvnw.cmd',    isGradle: false }; }
-  if (!IS_WIN && existsIn(cwd, 'mvnw'))       { return { exe: './mvnw',      isGradle: false }; }
-  return { exe: 'mvn', isGradle: false };
-}
-
-function buildScenarioCmd(name: string, cwd: string): string {
-  const { exe, isGradle } = detectExecutable(cwd);
-  const safe = name.replace(/"/g, '\\"');
-  const arg = isGradle ? `"-Pcucumber.filter.name=${safe}"` : `"-Dcucumber.filter.name=${safe}"`;
-  return `${exe} test ${arg}`;
-}
-
-function buildFeatureCmd(relativePath: string, cwd: string): string {
-  const { exe, isGradle } = detectExecutable(cwd);
-  const safe = relativePath.replace(/"/g, '\\"');
-  const arg = isGradle ? `"-Pcucumber.features=${safe}"` : `"-Dcucumber.features=${safe}"`;
-  return `${exe} test ${arg}`;
-}
-
-function buildTagCmd(tag: string, cwd: string): string {
-  const { exe, isGradle } = detectExecutable(cwd);
-  const safe = tag.replace(/"/g, '\\"');
-  const arg = isGradle ? `"-Pcucumber.filter.tags=${safe}"` : `"-Dcucumber.filter.tags=${safe}"`;
-  return `${exe} test ${arg}`;
-}
 
 function getWorkspacePath(uri: vscode.Uri): string {
   const ws = vscode.workspace.getWorkspaceFolder(uri) ?? vscode.workspace.workspaceFolders?.[0];
@@ -102,11 +64,14 @@ export class GherkinTestController {
   private readonly watcher: vscode.FileSystemWatcher;
   private readonly featureItems = new Map<string, vscode.TestItem>();
   private readonly scenarioTags  = new Map<string, string[]>();
-  private readonly stepLines     = new Map<string, number>(); // stepItemId → line
+  private readonly stepLines     = new Map<string, number>();
   private readonly decorations: InlineDecorationProvider;
+  private readonly _config: ProjectConfig;
 
   constructor(context: vscode.ExtensionContext, decorations: InlineDecorationProvider) {
     this.decorations = decorations;
+    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+    this._config = detectProject(cwd);
     this.ctrl = vscode.tests.createTestController('gherkinFlow', 'Gherkin Flow');
     context.subscriptions.push(this.ctrl);
 
@@ -133,10 +98,9 @@ export class GherkinTestController {
   // Public API for CodeLens
   public async runScenario(scenarioName: string, uri: vscode.Uri): Promise<void> {
     const featureItem = this.featureItems.get(uri.fsPath);
-    if (!featureItem) { this._fallback(buildScenarioCmd(scenarioName, getWorkspacePath(uri)), uri); return; }
+    if (!featureItem) { this._fallback(this._config.buildScenarioCmd(scenarioName), uri); return; }
 
     let target: vscode.TestItem | undefined;
-    // Search direct children (regular scenarios) and outline children (example rows)
     featureItem.children.forEach(child => {
       if (child.label === scenarioName) { target = child; return; }
       if (itemLevel(child) === 'outline') {
@@ -146,7 +110,7 @@ export class GherkinTestController {
       }
     });
 
-    if (!target) { this._fallback(buildScenarioCmd(scenarioName, getWorkspacePath(uri)), uri); return; }
+    if (!target) { this._fallback(this._config.buildScenarioCmd(scenarioName), uri); return; }
     await this._runHandler(new vscode.TestRunRequest([target]), new vscode.CancellationTokenSource().token);
   }
 
@@ -154,14 +118,14 @@ export class GherkinTestController {
     const featureItem = this.featureItems.get(uri.fsPath);
     if (!featureItem) {
       const cwd = getWorkspacePath(uri);
-      this._fallback(buildFeatureCmd(path.relative(cwd, uri.fsPath).replace(/\\/g, '/'), cwd), uri);
+      this._fallback(this._config.buildFeatureCmd(path.relative(cwd, uri.fsPath).replace(/\\/g, '/')), uri);
       return;
     }
     await this._runHandler(new vscode.TestRunRequest([featureItem]), new vscode.CancellationTokenSource().token);
   }
 
   public runByTag(tag: string, uri: vscode.Uri): void {
-    this._fallback(buildTagCmd(tag, getWorkspacePath(uri)), uri);
+    this._fallback(this._config.buildTagCmd(tag), uri);
   }
 
   // --- Private ---
@@ -271,16 +235,16 @@ export class GherkinTestController {
       let command: string;
       switch (level) {
         case 'feature':
-          command = buildFeatureCmd(path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/'), cwd);
+          command = this._config.buildFeatureCmd(path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/'));
           break;
         case 'outline':
-          command = buildScenarioCmd(outlineFilter(item.label), cwd);
+          command = this._config.buildScenarioCmd(outlineFilter(item.label));
           break;
         case 'example':
-          command = buildScenarioCmd(item.label, cwd);
+          command = this._config.buildScenarioCmd(item.label);
           break;
-        default: // scenario
-          command = buildScenarioCmd(item.label, cwd);
+        default:
+          command = this._config.buildScenarioCmd(item.label);
       }
 
       await this._execute(run, item, cwd, command, token);
@@ -308,7 +272,7 @@ export class GherkinTestController {
       proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
-        const report = parseReport(path.join(cwd, REPORT_RELATIVE));
+        const report = parseReport(path.join(cwd, this._config.reportPath));
         this._applyResults(run, item, report);
         if (item.uri) { this._applyInlineDecorations(item, report); }
         resolve();

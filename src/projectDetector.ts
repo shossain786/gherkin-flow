@@ -1,0 +1,83 @@
+import * as fs from 'fs';
+import * as path from 'path';
+
+const IS_WIN = process.platform === 'win32';
+
+export type ProjectType = 'java-gradle' | 'java-maven' | 'node';
+
+export interface ProjectConfig {
+  type: ProjectType;
+  buildScenarioCmd(name: string): string;
+  buildFeatureCmd(relativePath: string): string;
+  buildTagCmd(tag: string): string;
+  reportPath: string;
+  stepFileGlob: string;
+}
+
+function exists(dir: string, file: string): boolean {
+  return fs.existsSync(path.join(dir, file));
+}
+
+function hasNodeCucumber(cwd: string): boolean {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(cwd, 'package.json'), 'utf8'));
+    const all = { ...pkg.dependencies, ...pkg.devDependencies };
+    return '@cucumber/cucumber' in all || 'cucumber' in all;
+  } catch { return false; }
+}
+
+function hasNodeConfig(cwd: string): boolean {
+  return ['cucumber.js', '.cucumber.js', 'cucumber.mjs', 'cucumber.cjs'].some(f => exists(cwd, f));
+}
+
+function nodeConfig(cwd: string): ProjectConfig {
+  const fmt = hasNodeConfig(cwd) ? '' : ' --format json:reports/cucumber.json';
+  const safe = (s: string) => s.replace(/"/g, '\\"');
+  return {
+    type: 'node',
+    buildScenarioCmd: (name) => `npx cucumber-js --name "${safe(name)}"${fmt}`,
+    buildFeatureCmd:  (rel)  => `npx cucumber-js "${rel}"${fmt}`,
+    buildTagCmd:      (tag)  => `npx cucumber-js --tags "${safe(tag)}"${fmt}`,
+    reportPath:  path.join('reports', 'cucumber.json'),
+    stepFileGlob: '**/*.{ts,js}',
+  };
+}
+
+function gradleExe(): string {
+  if (IS_WIN) { return 'gradlew.bat'; }
+  return './gradlew';
+}
+
+function gradleConfig(exe: string): ProjectConfig {
+  const safe = (s: string) => s.replace(/"/g, '\\"');
+  return {
+    type: 'java-gradle',
+    buildScenarioCmd: (name) => `${exe} test "-Pcucumber.filter.name=${safe(name)}"`,
+    buildFeatureCmd:  (rel)  => `${exe} test "-Pcucumber.features=${safe(rel)}"`,
+    buildTagCmd:      (tag)  => `${exe} test "-Pcucumber.filter.tags=${safe(tag)}"`,
+    reportPath:  path.join('target', 'cucumber-report.json'),
+    stepFileGlob: '**/*.java',
+  };
+}
+
+function mavenConfig(exe: string): ProjectConfig {
+  const safe = (s: string) => s.replace(/"/g, '\\"');
+  return {
+    type: 'java-maven',
+    buildScenarioCmd: (name) => `${exe} test "-Dcucumber.filter.name=${safe(name)}"`,
+    buildFeatureCmd:  (rel)  => `${exe} test "-Dcucumber.features=${safe(rel)}"`,
+    buildTagCmd:      (tag)  => `${exe} test "-Dcucumber.filter.tags=${safe(tag)}"`,
+    reportPath:  path.join('target', 'cucumber-report.json'),
+    stepFileGlob: '**/*.java',
+  };
+}
+
+export function detectProject(cwd: string): ProjectConfig {
+  if (exists(cwd, 'package.json') && hasNodeCucumber(cwd)) { return nodeConfig(cwd); }
+  if (IS_WIN  && exists(cwd, 'gradlew.bat')) { return gradleConfig('gradlew.bat'); }
+  if (!IS_WIN && exists(cwd, 'gradlew'))     { return gradleConfig('./gradlew');   }
+  if (exists(cwd, 'gradle'))                 { return gradleConfig('gradle');      }
+  if (IS_WIN  && exists(cwd, 'mvnw.cmd'))    { return mavenConfig('mvnw.cmd');     }
+  if (!IS_WIN && exists(cwd, 'mvnw'))        { return mavenConfig('./mvnw');       }
+  return mavenConfig('mvn');
+}
