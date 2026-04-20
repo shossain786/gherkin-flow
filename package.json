@@ -2,7 +2,7 @@
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
   "description": "Run Cucumber scenarios directly from .feature files in VS Code — with step-by-step results, CodeLens run buttons, and Test Explorer integration.",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -32,7 +32,6 @@
     "automation"
   ],
   "activationEvents": [
-    "onLanguage:gherkin",
     "workspaceContains:**/*.feature"
   ],
   "main": "./out/extension.js",
@@ -41,7 +40,15 @@
       {
         "id": "gherkin",
         "aliases": ["Gherkin", "Cucumber"],
-        "extensions": [".feature"]
+        "extensions": [".feature"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "gherkin",
+        "scopeName": "text.gherkin.feature",
+        "path": "./syntaxes/gherkin.tmLanguage.json"
       }
     ],
     "commands": [

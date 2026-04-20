@@ -1,0 +1,125 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Gherkin",
+  "scopeName": "text.gherkin.feature",
+  "fileTypes": ["feature"],
+  "patterns": [
+    { "include": "#comment" },
+    { "include": "#tag" },
+    { "include": "#feature" },
+    { "include": "#scenario" },
+    { "include": "#background" },
+    { "include": "#examples" },
+    { "include": "#rule" },
+    { "include": "#step" },
+    { "include": "#docstring" },
+    { "include": "#table" }
+  ],
+  "repository": {
+    "comment": {
+      "match": "^\\s*(#.*)$",
+      "captures": {
+        "1": { "name": "comment.line.number-sign.gherkin" }
+      }
+    },
+    "tag": {
+      "match": "((@[\\w-]+)(?:\\s+|$))+",
+      "captures": {
+        "2": { "name": "entity.name.tag.gherkin" }
+      }
+    },
+    "feature": {
+      "match": "^(\\s*)(Feature|Business Need|Ability)(:)(.*)",
+      "captures": {
+        "2": { "name": "keyword.control.gherkin" },
+        "3": { "name": "punctuation.definition.keyword.gherkin" },
+        "4": { "name": "entity.name.type.gherkin" }
+      }
+    },
+    "scenario": {
+      "match": "^(\\s*)(Scenario(?: Outline)?|Example|Examples)(:)(.*)",
+      "captures": {
+        "2": { "name": "keyword.control.gherkin" },
+        "3": { "name": "punctuation.definition.keyword.gherkin" },
+        "5": { "name": "entity.name.function.gherkin" }
+      }
+    },
+    "background": {
+      "match": "^(\\s*)(Background)(:)(.*)",
+      "captures": {
+        "2": { "name": "keyword.control.gherkin" },
+        "3": { "name": "punctuation.definition.keyword.gherkin" }
+      }
+    },
+    "examples": {
+      "match": "^(\\s*)(Examples|Scenarios)(:)(.*)",
+      "captures": {
+        "2": { "name": "keyword.control.gherkin" },
+        "3": { "name": "punctuation.definition.keyword.gherkin" }
+      }
+    },
+    "rule": {
+      "match": "^(\\s*)(Rule)(:)(.*)",
+      "captures": {
+        "2": { "name": "keyword.control.gherkin" },
+        "3": { "name": "punctuation.definition.keyword.gherkin" },
+        "4": { "name": "entity.name.type.gherkin" }
+      }
+    },
+    "step": {
+      "match": "^(\\s*)(Given|When|Then|And|But|\\*)\\s+(.*)",
+      "captures": {
+        "2": { "name": "keyword.other.step.gherkin" },
+        "3": {
+          "patterns": [
+            { "include": "#stepString" },
+            { "include": "#stepInt" },
+            { "include": "#stepParam" }
+          ]
+        }
+      }
+    },
+    "stepString": {
+      "match": "\"[^\"]*\"|'[^']*'",
+      "name": "string.quoted.double.gherkin"
+    },
+    "stepInt": {
+      "match": "\\b-?\\d+(\\.\\d+)?\\b",
+      "name": "constant.numeric.gherkin"
+    },
+    "stepParam": {
+      "match": "<[^>]+>",
+      "name": "variable.parameter.gherkin"
+    },
+    "docstring": {
+      "begin": "^(\\s*)(\"\"\"|\`\`\`)",
+      "end": "^(\\s*)(\"\"\"|\`\`\`)",
+      "beginCaptures": {
+        "2": { "name": "punctuation.definition.string.gherkin" }
+      },
+      "endCaptures": {
+        "2": { "name": "punctuation.definition.string.gherkin" }
+      },
+      "name": "string.unquoted.docstring.gherkin"
+    },
+    "table": {
+      "match": "^\\s*(\\|)(.+)(\\|)\\s*$",
+      "captures": {
+        "1": { "name": "punctuation.separator.table.gherkin" },
+        "2": {
+          "patterns": [
+            {
+              "match": "[^|]+",
+              "name": "string.other.table-cell.gherkin"
+            },
+            {
+              "match": "\\|",
+              "name": "punctuation.separator.table.gherkin"
+            }
+          ]
+        },
+        "3": { "name": "punctuation.separator.table.gherkin" }
+      }
+    }
+  }
+}
