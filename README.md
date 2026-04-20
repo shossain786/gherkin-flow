@@ -6,6 +6,10 @@
 
 ---
 
+![GherkinFlow Demo](images/demo.gif)
+
+---
+
 ## The Problem
 
 Your Gherkin test fails. Now what?
@@ -53,12 +57,6 @@ That's not a test workflow. That's a context-switch tax.
   </tr>
 </table>
 
-<!-- TODO: replace screenshots above with GIF demos for higher impact:
-     GIF 1 — Click ▶ Run Scenario, watch step-by-step results appear in Test Explorer
-     GIF 2 — Ctrl+click a step, jump to its Java/TS definition
-     GIF 3 — Hover a step, see the matched pattern + Javadoc tooltip
-     GIF 4 — Click ⚡ Generate Missing Steps, pick a file, stubs appear
--->
 
 ---
 
