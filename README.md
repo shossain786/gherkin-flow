@@ -92,7 +92,19 @@ Given I enter |
 ```
 
 ### ⚠️ Missing Step Detection
-Steps with no matching Java definition are underlined with a warning. Hover to see the message. All unmatched steps appear in the **Problems** panel (Ctrl+Shift+M).
+Steps with no matching definition are underlined with a warning. Hover to see the message. All unmatched steps appear in the **Problems** panel (Ctrl+Shift+M).
+
+### ⚡ Generate Step Definitions
+When a feature file has unmatched steps, a `⚡ Generate Missing Steps (N)` button appears on the Feature line. Click it to generate all missing stubs at once — pick an existing step definition file or create a new one. A light bulb quick fix on each underlined step offers single or bulk generation.
+
+Generated stubs include correct annotations, parameter types, and file headers for Java, TypeScript, and JavaScript:
+```java
+@Given("I enter {string} in {string}")
+public void iEnterInField(String arg0, String arg1) {
+    // TODO: implement
+    throw new io.cucumber.java.PendingException();
+}
+```
 
 ### 🎨 Visual Decorations
 Scenario lines are highlighted with a green left border and subtle background, making them easy to spot in large feature files.
@@ -153,6 +165,9 @@ No configuration required. The extension auto-activates when a workspace contain
 ---
 
 ## Release Notes
+
+### 0.8.0
+Generate Step Definitions — `⚡ Generate Missing Steps (N)` CodeLens appears on the Feature line when unmatched steps exist. Click to generate all stubs at once into a chosen step definition file. A light bulb quick fix on each underlined step offers single-step or bulk generation. Supports Java, TypeScript, and JavaScript with correct annotations, types, and file headers.
 
 ### 0.7.4
 Fix: clicking a step in Test Explorer now shows `System.out.println` and log output captured during that step — parsed from the `output` field in the Cucumber JSON report.

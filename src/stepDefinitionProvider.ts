@@ -70,6 +70,10 @@ export class StepDefinitionIndex {
     return [...new Set(this._defs.map(d => d.rawPattern))];
   }
 
+  getDefinitionFiles(): string[] {
+    return [...this._defsByFile.keys()];
+  }
+
   private async _reloadFile(uri: vscode.Uri): Promise<void> {
     this._removeFile(uri);
     try {

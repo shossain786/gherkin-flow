@@ -95,6 +95,8 @@ export class GherkinTestController {
     this._discoverAll();
   }
 
+  public get config(): ProjectConfig { return this._config; }
+
   // Public API for CodeLens
   public async runScenario(scenarioName: string, uri: vscode.Uri): Promise<void> {
     const cwd = getWorkspacePath(uri);

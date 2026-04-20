@@ -5,6 +5,7 @@ import { StepDefinitionIndex, GherkinDefinitionProvider } from './stepDefinition
 import { GherkinDiagnosticsProvider } from './diagnosticsProvider';
 import { GherkinCompletionProvider } from './completionProvider';
 import { InlineDecorationProvider } from './inlineDecorationProvider';
+import { StepGeneratorProvider, collectMissingSteps, executeGenerateSteps } from './stepGeneratorProvider';
 
 const SCENARIO_REGEX = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX  = /^\s*Feature:\s*(.*)$/i;
@@ -40,6 +41,8 @@ function findScenarioAtPosition(document: vscode.TextDocument, position: vscode.
 }
 
 class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
+  constructor(private readonly _stepIndex: StepDefinitionIndex) {}
+
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     const lenses: vscode.CodeLens[] = [];
     for (let i = 0; i < document.lineCount; i++) {
@@ -52,6 +55,15 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           command: 'gherkinFlow.runFeatureByUri',
           arguments: [document.uri]
         }));
+        // Generate missing steps lens
+        const missing = collectMissingSteps(document, this._stepIndex);
+        if (missing.length > 0) {
+          lenses.push(new vscode.CodeLens(range, {
+            title: `⚡ Generate Missing Steps (${missing.length})`,
+            command: 'gherkinFlow.generateSteps',
+            arguments: [document.uri, missing]
+          }));
+        }
       }
 
       const sm = line.text.match(SCENARIO_REGEX);
@@ -84,6 +96,10 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
 export async function activate(context: vscode.ExtensionContext) {
   const decorations = new InlineDecorationProvider(context);
   const controller = new GherkinTestController(context, decorations);
+
+  // Build step index first — CodeLens and code actions both need it
+  const stepIndex = new StepDefinitionIndex(context);
+  await stepIndex.scan();
 
   vscode.window.visibleTextEditors.forEach(applyDecorations);
 
@@ -134,13 +150,17 @@ export async function activate(context: vscode.ExtensionContext) {
     (tag: string, uri: vscode.Uri) => controller.runByTag(tag, uri)
   );
 
-  const codeLens = vscode.languages.registerCodeLensProvider(
-    { pattern: '**/*.feature' },
-    new GherkinFlowCodeLensProvider()
+  // Generate missing step definitions
+  const generateSteps = vscode.commands.registerCommand(
+    'gherkinFlow.generateSteps',
+    (uri: vscode.Uri, missing) => executeGenerateSteps(uri, missing, stepIndex, controller.config)
   );
 
-  const stepIndex = new StepDefinitionIndex(context);
-  await stepIndex.scan();
+  const codeLens = vscode.languages.registerCodeLensProvider(
+    { pattern: '**/*.feature' },
+    new GherkinFlowCodeLensProvider(stepIndex)
+  );
+
   const defProvider = vscode.languages.registerDefinitionProvider(
     { pattern: '**/*.feature' },
     new GherkinDefinitionProvider(stepIndex)
@@ -155,12 +175,20 @@ export async function activate(context: vscode.ExtensionContext) {
     ' '
   );
 
+  const codeActionProvider = vscode.languages.registerCodeActionsProvider(
+    { pattern: '**/*.feature' },
+    new StepGeneratorProvider(stepIndex),
+    { providedCodeActionKinds: StepGeneratorProvider.providedCodeActionKinds }
+  );
+
   context.subscriptions.push(
     completionProvider,
+    codeActionProvider,
     runScenarioAtCursor,
     runFeatureAtCursor,
     runScenarioByName,
     runFeatureByUri,
+    generateSteps,
     codeLens,
     defProvider,
     runByTag,
