@@ -166,6 +166,9 @@ No configuration required. The extension auto-activates when a workspace contain
 
 ## Release Notes
 
+### 0.8.2
+Fix: the light bulb quick fix now correctly includes `DataTable`/`DocString` parameters — previously only the CodeLens path detected them; the quick fix path rebuilt the step without checking the following lines.
+
 ### 0.8.1
 Fix: generated step definitions now include the correct extra parameter when a step is followed by a DataTable (`io.cucumber.datatable.DataTable` for Java, `DataTable` for TypeScript) or a DocString (`String` / `string`).
 

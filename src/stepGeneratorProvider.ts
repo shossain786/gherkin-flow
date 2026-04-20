@@ -259,39 +259,28 @@ export class StepGeneratorProvider implements vscode.CodeActionProvider {
     _range: vscode.Range,
     context: vscode.CodeActionContext
   ): vscode.CodeAction[] {
-    const fromDiagnostic = context.diagnostics
-      .filter(d => d.source === 'GherkinFlow')
-      .map(d => {
-        const m = d.message.match(DIAG_RE);
-        if (!m) { return null; }
-        const sm = m[1].match(KWPRE_RE);
-        if (!sm) { return null; }
-        return { keyword: sm[1], text: sm[2], line: d.range.start.line } as MissingStep;
-      })
-      .filter((s): s is MissingStep => s !== null);
+    const gherkinDiags = context.diagnostics.filter(d => d.source === 'GherkinFlow');
+    if (gherkinDiags.length === 0) { return []; }
 
-    if (fromDiagnostic.length === 0) { return []; }
+    // Use collectMissingSteps so hasDataTable/hasDocString are correctly populated
+    const allMissing = collectMissingSteps(document, this._index);
+    if (allMissing.length === 0) { return []; }
+
+    // Match the step at the diagnostic line
+    const diagLines = new Set(gherkinDiags.map(d => d.range.start.line));
+    const stepsAtCursor = allMissing.filter(s => diagLines.has(s.line));
+    if (stepsAtCursor.length === 0) { return []; }
 
     const actions: vscode.CodeAction[] = [];
 
-    // Single step action
-    const single = fromDiagnostic[0];
-    const singleAction = new vscode.CodeAction(
-      `⚡ Generate step definition`,
-      vscode.CodeActionKind.QuickFix
-    );
-    singleAction.command = { command: 'gherkinFlow.generateSteps', title: 'Generate Step Definition', arguments: [document.uri, [single]] };
-    singleAction.diagnostics = [context.diagnostics.find(d => d.source === 'GherkinFlow')!];
+    const singleAction = new vscode.CodeAction(`⚡ Generate step definition`, vscode.CodeActionKind.QuickFix);
+    singleAction.command = { command: 'gherkinFlow.generateSteps', title: 'Generate Step Definition', arguments: [document.uri, [stepsAtCursor[0]]] };
+    singleAction.diagnostics = [gherkinDiags[0]];
     singleAction.isPreferred = true;
     actions.push(singleAction);
 
-    // Generate ALL missing in the file
-    const allMissing = collectMissingSteps(document, this._index);
     if (allMissing.length > 1) {
-      const allAction = new vscode.CodeAction(
-        `⚡ Generate all ${allMissing.length} missing step definitions`,
-        vscode.CodeActionKind.QuickFix
-      );
+      const allAction = new vscode.CodeAction(`⚡ Generate all ${allMissing.length} missing step definitions`, vscode.CodeActionKind.QuickFix);
       allAction.command = { command: 'gherkinFlow.generateSteps', title: 'Generate All Missing Steps', arguments: [document.uri, allMissing] };
       actions.push(allAction);
     }
