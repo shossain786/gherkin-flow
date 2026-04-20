@@ -166,6 +166,9 @@ No configuration required. The extension auto-activates when a workspace contain
 
 ## Release Notes
 
+### 0.8.1
+Fix: generated step definitions now include the correct extra parameter when a step is followed by a DataTable (`io.cucumber.datatable.DataTable` for Java, `DataTable` for TypeScript) or a DocString (`String` / `string`).
+
 ### 0.8.0
 Generate Step Definitions — `⚡ Generate Missing Steps (N)` CodeLens appears on the Feature line when unmatched steps exist. Click to generate all stubs at once into a chosen step definition file. A light bulb quick fix on each underlined step offers single-step or bulk generation. Supports Java, TypeScript, and JavaScript with correct annotations, types, and file headers.
 

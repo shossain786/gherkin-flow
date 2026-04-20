@@ -5,12 +5,29 @@ import { parseFeatureFile } from './featureParser';
 import { StepDefinitionIndex } from './stepDefinitionProvider';
 import { ProjectConfig } from './projectDetector';
 
-export interface MissingStep { keyword: string; text: string; line: number; }
+export interface MissingStep {
+  keyword: string;
+  text: string;
+  line: number;
+  hasDataTable?: boolean;
+  hasDocString?: boolean;
+}
 
 const DIAG_RE  = /No step definition found for: "(.+)"$/;
 const KWPRE_RE = /^(Given|When|Then|And|But|\*)\s+(.*)/i;
 
 // --- Public helpers ---
+
+function detectStepExtras(document: vscode.TextDocument, stepLine: number): { hasDataTable: boolean; hasDocString: boolean } {
+  for (let i = stepLine + 1; i < document.lineCount; i++) {
+    const text = document.lineAt(i).text.trim();
+    if (text === '') { continue; }
+    if (text.startsWith('|')) { return { hasDataTable: true, hasDocString: false }; }
+    if (text.startsWith('"""') || text.startsWith("'''")) { return { hasDataTable: false, hasDocString: true }; }
+    break;
+  }
+  return { hasDataTable: false, hasDocString: false };
+}
 
 export function collectMissingSteps(
   document: vscode.TextDocument,
@@ -25,7 +42,10 @@ export function collectMissingSteps(
       const key = `${step.keyword}|${step.text}`;
       if (seen.has(key)) { continue; }
       seen.add(key);
-      if (!index.find(step.text)) { out.push({ keyword: step.keyword, text: step.text, line: step.line }); }
+      if (!index.find(step.text)) {
+        const extras = detectStepExtras(document, step.line);
+        out.push({ keyword: step.keyword, text: step.text, line: step.line, ...extras });
+      }
     }
   }
   return out;
@@ -77,12 +97,22 @@ function normaliseKeyword(kw: string): string {
   return k;
 }
 
-function generateStub(keyword: string, text: string, ext: string): string {
-  const pattern = textToPattern(text);
+function generateStub(step: MissingStep, ext: string): string {
+  const pattern = textToPattern(step.text);
   const methodName = patternToMethodName(pattern);
   const params = extractParams(pattern, ext);
-  const kw = normaliseKeyword(keyword);
+  const kw = normaliseKeyword(step.keyword);
   const quoted = JSON.stringify(pattern);
+
+  if (step.hasDataTable) {
+    if (ext === 'java')     { params.push('io.cucumber.datatable.DataTable dataTable'); }
+    else if (ext === 'ts')  { params.push('dataTable: DataTable'); }
+    else                    { params.push('dataTable'); }
+  } else if (step.hasDocString) {
+    if (ext === 'java')     { params.push('String docString'); }
+    else if (ext === 'ts')  { params.push('docString: string'); }
+    else                    { params.push('docString'); }
+  }
 
   if (ext === 'java') {
     return [
@@ -96,13 +126,12 @@ function generateStub(keyword: string, text: string, ext: string): string {
   }
 
   const funcParams = params.length > 0 ? `function (${params.join(', ')})` : 'function ()';
-  const lines = [
+  return [
     `${kw}(${quoted}, ${funcParams} {`,
     `    // TODO: implement`,
     `});`,
     ``
-  ];
-  return lines.join('\n');
+  ].join('\n');
 }
 
 // --- File operations ---
@@ -151,7 +180,9 @@ function createNewFile(filePath: string, stubs: string[], ext: string): void {
       ``
     ].join('\n');
   } else if (ext === 'ts') {
-    content = [`import { Given, When, Then } from '@cucumber/cucumber';`, ``, ...stubs].join('\n');
+    const needsDataTable = stubs.some(s => s.includes('DataTable'));
+    const imports = needsDataTable ? `import { Given, When, Then, DataTable } from '@cucumber/cucumber';` : `import { Given, When, Then } from '@cucumber/cucumber';`;
+    content = [imports, ``, ...stubs].join('\n');
   } else {
     content = [`const { Given, When, Then } = require('@cucumber/cucumber');`, ``, ...stubs].join('\n');
   }
@@ -201,11 +232,11 @@ export async function executeGenerateSteps(
     if (!input) { return; }
     targetPath = path.join(wsRoot, input);
     ext = path.extname(targetPath).slice(1).toLowerCase() || (config.type === 'node' ? 'ts' : 'java');
-    createNewFile(targetPath, missing.map(s => generateStub(s.keyword, s.text, ext)), ext);
+    createNewFile(targetPath, missing.map(s => generateStub(s, ext)), ext);
   } else {
     targetPath = picked.filePath;
     ext = path.extname(targetPath).slice(1).toLowerCase();
-    await appendToFile(targetPath, missing.map(s => generateStub(s.keyword, s.text, ext)), ext);
+    await appendToFile(targetPath, missing.map(s => generateStub(s, ext)), ext);
   }
 
   const doc = await vscode.workspace.openTextDocument(targetPath);
