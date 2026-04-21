@@ -164,6 +164,7 @@ export class GherkinHoverProvider implements vscode.HoverProvider {
 
     const md = new vscode.MarkdownString(undefined, true);
     md.isTrusted = true;
+    md.supportHtml = true;
 
     const ext = def.location.uri.fsPath.split('.').pop()?.toLowerCase() ?? 'java';
     const lang = ext === 'ts' ? 'typescript' : ext === 'js' ? 'javascript' : 'java';
@@ -179,6 +180,28 @@ export class GherkinHoverProvider implements vscode.HoverProvider {
     }
 
     return new vscode.Hover(md);
+  }
+}
+
+export class GherkinDocumentLinkProvider implements vscode.DocumentLinkProvider {
+  constructor(private readonly _index: StepDefinitionIndex) {}
+
+  provideDocumentLinks(document: vscode.TextDocument): vscode.DocumentLink[] {
+    const links: vscode.DocumentLink[] = [];
+    for (let i = 0; i < document.lineCount; i++) {
+      const lineText = document.lineAt(i).text;
+      const match = lineText.match(STEP_RE);
+      if (!match) { continue; }
+      const location = this._index.find(match[2].trim());
+      if (!location) { continue; }
+      const stepStart = lineText.indexOf(match[2]);
+      const range = new vscode.Range(i, stepStart, i, stepStart + match[2].length);
+      const args = encodeURIComponent(JSON.stringify([location.uri.toString(), location.range.start.line]));
+      const link = new vscode.DocumentLink(range, vscode.Uri.parse(`command:gherkinFlow.openStepDef?${args}`));
+      link.tooltip = 'Go to step definition (Ctrl+click)';
+      links.push(link);
+    }
+    return links;
   }
 }
 

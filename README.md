@@ -202,7 +202,7 @@ Add the JSON reporter to your runner if not already present:
 
 These are planned or under consideration. Contributions and feature requests welcome via [GitHub Issues](https://github.com/shossain786/gherkin-flow/issues).
 
-- [ ] **Re-run failed scenarios only** — one click to re-run just the failures from the last run
+- [ ] **Run up to selected step** — execute a scenario and stop at the step you choose
 - [ ] **Tags sidebar panel** — browse and filter all scenarios by tag across the workspace
 - [ ] **Scenario history** — track pass/fail trends per scenario across multiple runs
 - [ ] **Allure report integration** — read Allure JSON alongside the Cucumber JSON report
@@ -211,6 +211,11 @@ These are planned or under consideration. Contributions and feature requests wel
 ---
 
 ## Release Notes
+
+### 0.9.2
+- Ctrl+click on a step now opens the step definition in a **new permanent tab** instead of reusing the current editor
+- Hover tooltip now correctly renders Javadoc/JSDoc HTML tags (`<br>`, `<ul>`, `<li>`, `<b>`, etc.)
+- `🔄 Re-run Failed (N)` CodeLens appears on the Feature line after any run that had failures — re-runs only the failed scenarios
 
 ### 0.9.1
 README overhaul — new headline, pain-to-solution hook, Why GherkinFlow comparison table, benefit-driven feature descriptions, roadmap section, and demo GIF.

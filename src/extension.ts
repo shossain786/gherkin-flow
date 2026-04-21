@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { GherkinTestController } from './testController';
-import { StepDefinitionIndex, GherkinDefinitionProvider, GherkinHoverProvider } from './stepDefinitionProvider';
+import { StepDefinitionIndex, GherkinDefinitionProvider, GherkinHoverProvider, GherkinDocumentLinkProvider } from './stepDefinitionProvider';
 import { GherkinDiagnosticsProvider } from './diagnosticsProvider';
 import { GherkinCompletionProvider } from './completionProvider';
 import { InlineDecorationProvider } from './inlineDecorationProvider';
@@ -41,7 +41,15 @@ function findScenarioAtPosition(document: vscode.TextDocument, position: vscode.
 }
 
 class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
-  constructor(private readonly _stepIndex: StepDefinitionIndex) {}
+  private readonly _onChange = new vscode.EventEmitter<void>();
+  readonly onDidChangeCodeLenses = this._onChange.event;
+
+  constructor(
+    private readonly _stepIndex: StepDefinitionIndex,
+    private readonly _controller: GherkinTestController
+  ) {
+    _controller.onDidRunTests(() => this._onChange.fire());
+  }
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
     const lenses: vscode.CodeLens[] = [];
@@ -62,6 +70,15 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
             title: `⚡ Generate Missing Steps (${missing.length})`,
             command: 'gherkinFlow.generateSteps',
             arguments: [document.uri, missing]
+          }));
+        }
+        // Re-run failed lens
+        const failed = this._controller.getFailedScenarios(document.uri);
+        if (failed.length > 0) {
+          lenses.push(new vscode.CodeLens(range, {
+            title: `🔄 Re-run Failed (${failed.length})`,
+            command: 'gherkinFlow.rerunFailed',
+            arguments: [document.uri]
           }));
         }
       }
@@ -156,9 +173,28 @@ export async function activate(context: vscode.ExtensionContext) {
     (uri: vscode.Uri, missing) => executeGenerateSteps(uri, missing, stepIndex, controller.config)
   );
 
+  // Re-run failed scenarios for a feature file
+  const rerunFailed = vscode.commands.registerCommand(
+    'gherkinFlow.rerunFailed',
+    (uri: vscode.Uri) => controller.rerunFailed(uri)
+  );
+
+  // Open step definition in a new permanent tab (used by DocumentLinkProvider)
+  const openStepDef = vscode.commands.registerCommand(
+    'gherkinFlow.openStepDef',
+    async (uriStr: string, line: number) => {
+      const uri = vscode.Uri.parse(uriStr);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(doc, { preview: false });
+      const pos = new vscode.Position(line, 0);
+      editor.selection = new vscode.Selection(pos, pos);
+      editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+    }
+  );
+
   const codeLens = vscode.languages.registerCodeLensProvider(
     { pattern: '**/*.feature' },
-    new GherkinFlowCodeLensProvider(stepIndex)
+    new GherkinFlowCodeLensProvider(stepIndex, controller)
   );
 
   const defProvider = vscode.languages.registerDefinitionProvider(
@@ -169,6 +205,11 @@ export async function activate(context: vscode.ExtensionContext) {
   const hoverProvider = vscode.languages.registerHoverProvider(
     { pattern: '**/*.feature' },
     new GherkinHoverProvider(stepIndex)
+  );
+
+  const docLinkProvider = vscode.languages.registerDocumentLinkProvider(
+    { pattern: '**/*.feature' },
+    new GherkinDocumentLinkProvider(stepIndex)
   );
 
   const diagnosticsProvider = new GherkinDiagnosticsProvider(stepIndex, context);
@@ -190,6 +231,9 @@ export async function activate(context: vscode.ExtensionContext) {
     completionProvider,
     codeActionProvider,
     hoverProvider,
+    docLinkProvider,
+    rerunFailed,
+    openStepDef,
     runScenarioAtCursor,
     runFeatureAtCursor,
     runScenarioByName,

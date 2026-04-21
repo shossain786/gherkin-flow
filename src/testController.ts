@@ -62,9 +62,12 @@ function buildFailureMessage(scenario: ParsedScenario): vscode.MarkdownString {
 export class GherkinTestController {
   private readonly ctrl: vscode.TestController;
   private readonly watcher: vscode.FileSystemWatcher;
-  private readonly featureItems = new Map<string, vscode.TestItem>();
-  private readonly scenarioTags  = new Map<string, string[]>();
-  private readonly stepLines     = new Map<string, number>();
+  private readonly featureItems   = new Map<string, vscode.TestItem>();
+  private readonly scenarioTags   = new Map<string, string[]>();
+  private readonly stepLines      = new Map<string, number>();
+  private readonly _failedScenarios = new Map<string, vscode.TestItem[]>();
+  private readonly _onDidRunTests = new vscode.EventEmitter<vscode.Uri>();
+  public  readonly onDidRunTests  = this._onDidRunTests.event;
   private readonly decorations: InlineDecorationProvider;
   private readonly _config: ProjectConfig;
 
@@ -96,6 +99,16 @@ export class GherkinTestController {
   }
 
   public get config(): ProjectConfig { return this._config; }
+
+  public getFailedScenarios(uri: vscode.Uri): vscode.TestItem[] {
+    return this._failedScenarios.get(uri.fsPath) ?? [];
+  }
+
+  public async rerunFailed(uri: vscode.Uri): Promise<void> {
+    const failed = this.getFailedScenarios(uri);
+    if (failed.length === 0) { return; }
+    await this._runHandler(new vscode.TestRunRequest(failed), new vscode.CancellationTokenSource().token);
+  }
 
   // Public API for CodeLens
   public async runScenario(scenarioName: string, uri: vscode.Uri): Promise<void> {
@@ -278,37 +291,42 @@ export class GherkinTestController {
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
         const report = parseReport(path.join(cwd, this._config.reportPath));
-        this._applyResults(run, item, report);
-        if (item.uri) { this._applyInlineDecorations(item, report); }
+        const failures: vscode.TestItem[] = [];
+        this._applyResults(run, item, report, failures);
+        if (item.uri) {
+          this._failedScenarios.set(item.uri.fsPath, failures);
+          this._onDidRunTests.fire(item.uri);
+          this._applyInlineDecorations(item, report);
+        }
         resolve();
       });
     });
   }
 
-  private _applyResults(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport): void {
+  private _applyResults(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
     switch (itemLevel(item)) {
       case 'feature':
         item.children.forEach(child => {
-          if (itemLevel(child) === 'outline') { this._applyOutline(run, child, report); }
-          else                                { this._applyScenario(run, child, report); }
+          if (itemLevel(child) === 'outline') { this._applyOutline(run, child, report, failures); }
+          else                                { this._applyScenario(run, child, report, failures); }
         });
         break;
       case 'outline':
-        this._applyOutline(run, item, report);
+        this._applyOutline(run, item, report, failures);
         break;
       case 'example':
       case 'scenario':
-        this._applyScenario(run, item, report);
+        this._applyScenario(run, item, report, failures);
         break;
     }
   }
 
-  private _applyOutline(run: vscode.TestRun, outlineItem: vscode.TestItem, report: ParsedReport): void {
+  private _applyOutline(run: vscode.TestRun, outlineItem: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
     let failed = false;
     let totalMs = 0;
 
     outlineItem.children.forEach(exampleItem => {
-      this._applyScenario(run, exampleItem, report);
+      this._applyScenario(run, exampleItem, report, failures);
       const parsed = report.scenarios.get(exampleItem.label);
       if (parsed) {
         totalMs += parsed.durationMs;
@@ -323,7 +341,7 @@ export class GherkinTestController {
     }
   }
 
-  private _applyScenario(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport): void {
+  private _applyScenario(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
     const parsed = report.scenarios.get(item.label);
     if (!parsed) { run.skipped(item); item.children.forEach(c => run.skipped(c)); return; }
 
@@ -356,6 +374,7 @@ export class GherkinTestController {
       const msg = new vscode.TestMessage(buildFailureMessage(parsed));
       if (item.uri && item.range) { msg.location = new vscode.Location(item.uri, item.range.start); }
       run.failed(item, msg, parsed.durationMs);
+      failures.push(item);
     } else {
       run.skipped(item);
     }
