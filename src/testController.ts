@@ -163,9 +163,12 @@ export class GherkinTestController {
       featureItem.range = new vscode.Range(parsed.line, 0, parsed.line, 0);
 
       // Group outline-expanded scenarios under outline parent items
-      const outlineItems = new Map<string, vscode.TestItem>();
+      const outlineItems    = new Map<string, vscode.TestItem>();
+      const outlineCounters = new Map<string, number>();
+      let scenarioIdx = 0;
 
       for (const scenario of parsed.scenarios) {
+        const idxStr = String(scenarioIdx++).padStart(5, '0');
         if (scenario.outlineName) {
           // Ensure outline parent exists
           let outlineItem = outlineItems.get(scenario.outlineName);
@@ -173,14 +176,19 @@ export class GherkinTestController {
             const outlineId = `${uri.fsPath}::${OUTLINE_PREFIX}${scenario.outlineName}`;
             outlineItem = this.ctrl.createTestItem(outlineId, scenario.outlineName, uri);
             outlineItem.description = 'Scenario Outline';
+            outlineItem.sortText = idxStr;
             featureItem.children.add(outlineItem);
             outlineItems.set(scenario.outlineName, outlineItem);
+            outlineCounters.set(scenario.outlineName, 0);
           }
 
           // Add the expanded example row under the outline
+          const exampleIdx = outlineCounters.get(scenario.outlineName)!;
+          outlineCounters.set(scenario.outlineName, exampleIdx + 1);
           const exampleId = `${uri.fsPath}::${OUTLINE_PREFIX}${scenario.outlineName}::${scenario.name}`;
           const exampleItem = this.ctrl.createTestItem(exampleId, scenario.name, uri);
           exampleItem.range = new vscode.Range(scenario.line, 0, scenario.line, 0);
+          exampleItem.sortText = String(exampleIdx).padStart(5, '0');
           this._addSteps(exampleItem, exampleId, scenario.steps, uri);
           outlineItem.children.add(exampleItem);
 
@@ -189,6 +197,7 @@ export class GherkinTestController {
           const scenarioId = `${uri.fsPath}::${scenario.name}`;
           const scenarioItem = this.ctrl.createTestItem(scenarioId, scenario.name, uri);
           scenarioItem.range = new vscode.Range(scenario.line, 0, scenario.line, 0);
+          scenarioItem.sortText = idxStr;
           this._addSteps(scenarioItem, scenarioId, scenario.steps, uri);
           if (scenario.tags.length > 0) { this.scenarioTags.set(scenarioId, scenario.tags); }
           featureItem.children.add(scenarioItem);
@@ -211,6 +220,7 @@ export class GherkinTestController {
     steps.forEach((step, i) => {
       const id = `${parentId}::${i}`;
       const stepItem = this.ctrl.createTestItem(id, `${step.keyword} ${step.text}`, uri);
+      stepItem.sortText = String(i).padStart(5, '0');
       if (step.line !== undefined) { this.stepLines.set(id, step.line); }
       parent.children.add(stepItem);
     });

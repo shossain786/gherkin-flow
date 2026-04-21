@@ -212,6 +212,11 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.3
+- Fix: step text in feature file is no longer underlined (removed DocumentLinkProvider; Ctrl+click via DefinitionProvider is unaffected)
+- Fix: steps in Test Explorer now appear in the same order as the feature file — `sortText` set on all test items using their file position index
+- Fix: `🔄 Re-run` button now appears on the specific scenario that failed, not at the top of the feature file
+
 ### 0.9.2
 - Ctrl+click on a step now opens the step definition in a **new permanent tab** instead of reusing the current editor
 - Hover tooltip now correctly renders Javadoc/JSDoc HTML tags (`<br>`, `<ul>`, `<li>`, `<b>`, etc.)
