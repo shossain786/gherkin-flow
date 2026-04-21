@@ -64,6 +64,8 @@ export class StepDefinitionIndex {
   private _defs: StepDefinition[] = [];
   private _defsByFile = new Map<string, StepDefinition[]>();
   private _watcher: vscode.FileSystemWatcher;
+  private readonly _onDidChange = new vscode.EventEmitter<void>();
+  readonly onDidChange = this._onDidChange.event;
 
   constructor(context: vscode.ExtensionContext) {
     this._watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js}');
@@ -109,6 +111,7 @@ export class StepDefinitionIndex {
     } catch {
       // unreadable — skip
     }
+    this._onDidChange.fire();
   }
 
   private _parseFile(uri: vscode.Uri, text: string): void {
@@ -196,4 +199,39 @@ export class GherkinDefinitionProvider implements vscode.DefinitionProvider {
     if (!match) { return undefined; }
     return this._index.find(match[2].trim());
   }
+}
+
+export class GherkinDocumentLinkProvider implements vscode.DocumentLinkProvider {
+  constructor(private readonly _index: StepDefinitionIndex) {}
+
+  provideDocumentLinks(document: vscode.TextDocument): vscode.DocumentLink[] {
+    const links: vscode.DocumentLink[] = [];
+    for (let i = 0; i < document.lineCount; i++) {
+      const lineText = document.lineAt(i).text;
+      const match = lineText.match(STEP_RE);
+      if (!match) { continue; }
+      const location = this._index.find(match[2].trim());
+      if (!location) { continue; }
+      const stepStart = lineText.indexOf(match[2]);
+      const range = new vscode.Range(i, stepStart, i, stepStart + match[2].length);
+      const args = encodeURIComponent(JSON.stringify([location.uri.toString(), location.range.start.line]));
+      const link = new vscode.DocumentLink(range, vscode.Uri.parse(`command:gherkinFlow.openStepDef?${args}`));
+      links.push(link);
+    }
+    return links;
+  }
+}
+
+// Returns ranges of all matched step text in the document (used to suppress link underlines)
+export function getMatchedStepRanges(document: vscode.TextDocument, index: StepDefinitionIndex): vscode.Range[] {
+  const ranges: vscode.Range[] = [];
+  for (let i = 0; i < document.lineCount; i++) {
+    const lineText = document.lineAt(i).text;
+    const match = lineText.match(STEP_RE);
+    if (!match) { continue; }
+    if (!index.find(match[2].trim())) { continue; }
+    const stepStart = lineText.indexOf(match[2]);
+    ranges.push(new vscode.Range(i, stepStart, i, stepStart + match[2].length));
+  }
+  return ranges;
 }

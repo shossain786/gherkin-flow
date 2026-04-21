@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { GherkinTestController } from './testController';
-import { StepDefinitionIndex, GherkinDefinitionProvider, GherkinHoverProvider } from './stepDefinitionProvider';
+import { StepDefinitionIndex, GherkinDefinitionProvider, GherkinHoverProvider, GherkinDocumentLinkProvider, getMatchedStepRanges } from './stepDefinitionProvider';
 import { GherkinDiagnosticsProvider } from './diagnosticsProvider';
 import { GherkinCompletionProvider } from './completionProvider';
 import { InlineDecorationProvider } from './inlineDecorationProvider';
@@ -21,6 +21,13 @@ const scenarioDecoration = vscode.window.createTextEditorDecorationType({
   overviewRulerLane: vscode.OverviewRulerLane.Left,
 });
 
+// Suppresses the underline that DocumentLinkProvider applies to matched step text.
+// Extension inline styles (textDecoration: none) override VS Code's link CSS class.
+const noLinkUnderlineDecoration = vscode.window.createTextEditorDecorationType({
+  textDecoration: 'none',
+  cursor: 'pointer',
+});
+
 function applyDecorations(editor: vscode.TextEditor): void {
   if (path.extname(editor.document.fileName).toLowerCase() !== '.feature') { return; }
   const ranges: vscode.Range[] = [];
@@ -30,6 +37,11 @@ function applyDecorations(editor: vscode.TextEditor): void {
     if (match && match[2].trim().length > 0) { ranges.push(line.range); }
   }
   editor.setDecorations(scenarioDecoration, ranges);
+}
+
+function applyLinkDecorations(editor: vscode.TextEditor, stepIndex: StepDefinitionIndex): void {
+  if (path.extname(editor.document.fileName).toLowerCase() !== '.feature') { return; }
+  editor.setDecorations(noLinkUnderlineDecoration, getMatchedStepRanges(editor.document, stepIndex));
 }
 
 function findScenarioAtPosition(document: vscode.TextDocument, position: vscode.Position): string | undefined {
@@ -122,6 +134,10 @@ export async function activate(context: vscode.ExtensionContext) {
   await stepIndex.scan();
 
   vscode.window.visibleTextEditors.forEach(applyDecorations);
+  vscode.window.visibleTextEditors.forEach(e => applyLinkDecorations(e, stepIndex));
+  stepIndex.onDidChange(() => {
+    vscode.window.visibleTextEditors.forEach(e => applyLinkDecorations(e, stepIndex));
+  });
 
   // Right-click: run scenario at cursor
   const runScenarioAtCursor = vscode.commands.registerTextEditorCommand(
@@ -182,6 +198,19 @@ export async function activate(context: vscode.ExtensionContext) {
     (uri: vscode.Uri) => controller.rerunFailed(uri)
   );
 
+  // Open step definition in a new permanent tab (invoked by DocumentLinkProvider)
+  const openStepDef = vscode.commands.registerCommand(
+    'gherkinFlow.openStepDef',
+    async (uriStr: string, line: number) => {
+      const uri = vscode.Uri.parse(uriStr);
+      const doc = await vscode.workspace.openTextDocument(uri);
+      const editor = await vscode.window.showTextDocument(doc, { preview: false });
+      const pos = new vscode.Position(line, 0);
+      editor.selection = new vscode.Selection(pos, pos);
+      editor.revealRange(new vscode.Range(pos, pos), vscode.TextEditorRevealType.InCenter);
+    }
+  );
+
 
   const codeLens = vscode.languages.registerCodeLensProvider(
     { pattern: '**/*.feature' },
@@ -196,6 +225,11 @@ export async function activate(context: vscode.ExtensionContext) {
   const hoverProvider = vscode.languages.registerHoverProvider(
     { pattern: '**/*.feature' },
     new GherkinHoverProvider(stepIndex)
+  );
+
+  const docLinkProvider = vscode.languages.registerDocumentLinkProvider(
+    { pattern: '**/*.feature' },
+    new GherkinDocumentLinkProvider(stepIndex)
   );
 
 
@@ -218,6 +252,8 @@ export async function activate(context: vscode.ExtensionContext) {
     completionProvider,
     codeActionProvider,
     hoverProvider,
+    docLinkProvider,
+    openStepDef,
     rerunFailed,
     runScenarioAtCursor,
     runFeatureAtCursor,
@@ -228,11 +264,17 @@ export async function activate(context: vscode.ExtensionContext) {
     defProvider,
     runByTag,
     vscode.window.onDidChangeActiveTextEditor(editor => {
-      if (editor) { applyDecorations(editor); }
+      if (editor) {
+        applyDecorations(editor);
+        applyLinkDecorations(editor, stepIndex);
+      }
     }),
     vscode.workspace.onDidChangeTextDocument(event => {
       const editor = vscode.window.activeTextEditor;
-      if (editor && event.document === editor.document) { applyDecorations(editor); }
+      if (editor && event.document === editor.document) {
+        applyDecorations(editor);
+        applyLinkDecorations(editor, stepIndex);
+      }
     })
   );
 }

@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.4
+Fix: Ctrl+click on a step again opens the step definition in a new permanent tab. The DocumentLinkProvider is restored for navigation; a `textDecoration: none` decoration is applied over matched step text to cancel the underline VS Code would otherwise show.
+
 ### 0.9.3
 - Fix: step text in feature file is no longer underlined (removed DocumentLinkProvider; Ctrl+click via DefinitionProvider is unaffected)
 - Fix: steps in Test Explorer now appear in the same order as the feature file — `sortText` set on all test items using their file position index
