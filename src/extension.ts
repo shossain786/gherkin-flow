@@ -6,10 +6,14 @@ import { GherkinDiagnosticsProvider } from './diagnosticsProvider';
 import { GherkinCompletionProvider } from './completionProvider';
 import { InlineDecorationProvider } from './inlineDecorationProvider';
 import { StepGeneratorProvider, collectMissingSteps, executeGenerateSteps } from './stepGeneratorProvider';
+import { GherkinFormattingProvider } from './featureFormatter';
+import { substitute } from './featureParser';
 
-const SCENARIO_REGEX = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
-const FEATURE_REGEX  = /^\s*Feature:\s*(.*)$/i;
-const TAG_LINE_REGEX = /^\s*(@\S+(?:\s+@\S+)*)\s*$/;
+const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
+const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
+const TAG_LINE_REGEX  = /^\s*(@\S+(?:\s+@\S+)*)\s*$/;
+const EXAMPLES_REGEX  = /^\s*Examples\s*:/i;
+const TABLE_ROW_REGEX = /^\s*\|(.+)\|\s*$/;
 
 const scenarioDecoration = vscode.window.createTextEditorDecorationType({
   isWholeLine: true,
@@ -79,6 +83,12 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
     const failedNames = new Set(
       this._controller.getFailedScenarios(document.uri).map(item => item.label)
     );
+
+    // Outline / Examples table state
+    let outlineTemplateName: string | undefined;
+    let examplesHeaders: string[] = [];
+    let inExamples = false;
+
     for (let i = 0; i < document.lineCount; i++) {
       const line = document.lineAt(i);
       const range = new vscode.Range(i, 0, i, line.text.length);
@@ -89,7 +99,6 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           command: 'gherkinFlow.runFeatureByUri',
           arguments: [document.uri]
         }));
-        // Generate missing steps lens
         const missing = this._getMissingSteps(document);
         if (missing.length > 0) {
           lenses.push(new vscode.CodeLens(range, {
@@ -98,17 +107,65 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
             arguments: [document.uri, missing]
           }));
         }
+        outlineTemplateName = undefined;
+        inExamples = false;
+        continue;
+      }
+
+      // Examples keyword — start tracking the table
+      if (EXAMPLES_REGEX.test(line.text) && outlineTemplateName) {
+        inExamples = true;
+        examplesHeaders = [];
+        continue;
+      }
+
+      // Table rows inside an Examples block
+      if (inExamples && outlineTemplateName) {
+        const rowMatch = line.text.match(TABLE_ROW_REGEX);
+        if (rowMatch) {
+          const cells = rowMatch[1].split('|').map(c => c.trim());
+          if (examplesHeaders.length === 0) {
+            examplesHeaders = cells;  // header row — no lens
+          } else {
+            // Data row — build the expanded scenario name and add a run lens
+            const vars: Record<string, string> = {};
+            examplesHeaders.forEach((h, idx) => { vars[h] = cells[idx] ?? ''; });
+            const expandedName = substitute(outlineTemplateName, vars);
+            const label = cells.join(' | ');
+            lenses.push(new vscode.CodeLens(range, {
+              title: `▶ Run | ${label} |`,
+              command: 'gherkinFlow.runScenarioByName',
+              arguments: [expandedName, document.uri]
+            }));
+            if (failedNames.has(expandedName)) {
+              lenses.push(new vscode.CodeLens(range, {
+                title: '🔄 Re-run',
+                command: 'gherkinFlow.runScenarioByName',
+                arguments: [expandedName, document.uri]
+              }));
+            }
+          }
+          continue;
+        }
+        // Non-table line ends the Examples block (blank lines are allowed inside)
+        if (line.text.trim().length > 0) { inExamples = false; }
       }
 
       const sm = line.text.match(SCENARIO_REGEX);
       if (sm && sm[2].trim().length > 0) {
+        const isOutline = /outline/i.test(sm[1]);
         const scenarioName = sm[2].trim();
+
+        // Reset outline tracking
+        outlineTemplateName = isOutline ? scenarioName : undefined;
+        inExamples = false;
+        examplesHeaders = [];
+
         lenses.push(new vscode.CodeLens(range, {
-          title: '▶ Run Scenario',
+          title: isOutline ? '▶ Run All Rows' : '▶ Run Scenario',
           command: 'gherkinFlow.runScenarioByName',
           arguments: [scenarioName, document.uri]
         }));
-        // Re-run lens appears only on scenarios that failed last run
         if (failedNames.has(scenarioName)) {
           lenses.push(new vscode.CodeLens(range, {
             title: '🔄 Re-run',
@@ -116,7 +173,7 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
             arguments: [scenarioName, document.uri]
           }));
         }
-        // Tag buttons: scan lines immediately above the scenario (skip blanks, stop at non-tag)
+        // Tag buttons
         const tags: string[] = [];
         for (let j = i - 1; j >= 0; j--) {
           const tagMatch = document.lineAt(j).text.match(TAG_LINE_REGEX);
@@ -259,7 +316,13 @@ export async function activate(context: vscode.ExtensionContext) {
     { providedCodeActionKinds: StepGeneratorProvider.providedCodeActionKinds }
   );
 
+  const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider(
+    { pattern: '**/*.feature' },
+    new GherkinFormattingProvider()
+  );
+
   context.subscriptions.push(
+    formattingProvider,
     scenarioDecoration,
     noLinkUnderlineDecoration,
     completionProvider,

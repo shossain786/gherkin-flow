@@ -35,6 +35,33 @@ export class GherkinDiagnosticsProvider {
     const diagnostics: vscode.Diagnostic[] = [];
     const seen = new Set<number>();
 
+    // Duplicate scenario name detection — flag every occurrence when a name appears more than once.
+    // Scenario Outline expanded rows share the same outlineName; compare on the outline template
+    // name for those so each expanded example doesn't count as a separate duplicate.
+    const nameToLines = new Map<string, number[]>();
+    for (const scenario of parsed.scenarios) {
+      const key = (scenario.outlineName ?? scenario.name).toLowerCase();
+      if (!nameToLines.has(key)) { nameToLines.set(key, []); }
+      // Only record the first expanded row for each outline (they all share the same template line).
+      const lines = nameToLines.get(key)!;
+      if (!lines.includes(scenario.line)) { lines.push(scenario.line); }
+    }
+    for (const [, lines] of nameToLines) {
+      if (lines.length < 2) { continue; }
+      for (const lineNo of lines) {
+        const lineText = document.lineAt(lineNo).text;
+        const col = lineText.search(/\S/);
+        const range = new vscode.Range(lineNo, col < 0 ? 0 : col, lineNo, lineText.length);
+        const diag = new vscode.Diagnostic(
+          range,
+          'Duplicate scenario name within this feature file — test results may be ambiguous.',
+          vscode.DiagnosticSeverity.Warning
+        );
+        diag.source = 'GherkinFlow';
+        diagnostics.push(diag);
+      }
+    }
+
     for (const scenario of parsed.scenarios) {
       for (const step of scenario.steps) {
         if (seen.has(step.line)) { continue; }

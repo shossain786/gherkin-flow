@@ -5,7 +5,7 @@ import { spawn } from 'child_process';
 import { parseFeatureFile } from './featureParser';
 import { parseReport, ParsedReport, ParsedScenario } from './reportParser';
 import { InlineDecorationProvider, FailedStep } from './inlineDecorationProvider';
-import { detectProject, ProjectConfig } from './projectDetector';
+import { detectProject, ProjectConfig, SpawnArgs } from './projectDetector';
 
 const OUTLINE_PREFIX = '[OUTLINE]';
 
@@ -117,7 +117,7 @@ export class GherkinTestController {
     const cwd = getWorkspacePath(uri);
     const featRel = path.relative(cwd, uri.fsPath).replace(/\\/g, '/');
     const featureItem = this.featureItems.get(uri.fsPath);
-    if (!featureItem) { this._fallback(this._config.buildScenarioCmd(scenarioName, featRel), uri); return; }
+    if (!featureItem) { this._fallback(this._config.buildScenarioArgs(scenarioName, featRel), uri); return; }
 
     let target: vscode.TestItem | undefined;
     featureItem.children.forEach(child => {
@@ -129,7 +129,7 @@ export class GherkinTestController {
       }
     });
 
-    if (!target) { this._fallback(this._config.buildScenarioCmd(scenarioName, featRel), uri); return; }
+    if (!target) { this._fallback(this._config.buildScenarioArgs(scenarioName, featRel), uri); return; }
     const cts = new vscode.CancellationTokenSource();
     try { await this._runHandler(new vscode.TestRunRequest([target]), cts.token); } finally { cts.dispose(); }
   }
@@ -138,7 +138,7 @@ export class GherkinTestController {
     const featureItem = this.featureItems.get(uri.fsPath);
     if (!featureItem) {
       const cwd = getWorkspacePath(uri);
-      this._fallback(this._config.buildFeatureCmd(path.relative(cwd, uri.fsPath).replace(/\\/g, '/')), uri);
+      this._fallback(this._config.buildFeatureArgs(path.relative(cwd, uri.fsPath).replace(/\\/g, '/')), uri);
       return;
     }
     const cts = new vscode.CancellationTokenSource();
@@ -146,7 +146,7 @@ export class GherkinTestController {
   }
 
   public runByTag(tag: string, uri: vscode.Uri): void {
-    this._fallback(this._config.buildTagCmd(tag), uri);
+    this._fallback(this._config.buildTagArgs(tag), uri);
   }
 
   // --- Private ---
@@ -267,22 +267,22 @@ export class GherkinTestController {
       this._markStarted(run, item);
 
       const featRel = path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/');
-      let command: string;
+      let spawnArgs: SpawnArgs;
       switch (level) {
         case 'feature':
-          command = this._config.buildFeatureCmd(featRel);
+          spawnArgs = this._config.buildFeatureArgs(featRel);
           break;
         case 'outline':
-          command = this._config.buildScenarioCmd(outlineFilter(item.label), featRel);
+          spawnArgs = this._config.buildScenarioArgs(outlineFilter(item.label), featRel);
           break;
         case 'example':
-          command = this._config.buildScenarioCmd(item.label, featRel);
+          spawnArgs = this._config.buildScenarioArgs(item.label, featRel);
           break;
         default:
-          command = this._config.buildScenarioCmd(item.label, featRel);
+          spawnArgs = this._config.buildScenarioArgs(item.label, featRel);
       }
 
-      await this._execute(run, item, cwd, command, token);
+      await this._execute(run, item, cwd, spawnArgs, token);
     }
 
     run.end();
@@ -297,12 +297,13 @@ export class GherkinTestController {
     run: vscode.TestRun,
     item: vscode.TestItem,
     cwd: string,
-    command: string,
+    spawnArgs: SpawnArgs,
     token: vscode.CancellationToken
   ): Promise<void> {
     return new Promise(resolve => {
-      run.appendOutput(`\r\n\u25b6 ${command}\r\n\r\n`);
-      const proc = spawn(command, [], { cwd, shell: true, env: { ...process.env } });
+      const displayCmd = [spawnArgs.file, ...spawnArgs.args].join(' ');
+      run.appendOutput(`\r\n▶ ${displayCmd}\r\n\r\n`);
+      const proc = spawn(spawnArgs.file, spawnArgs.args, { cwd, shell: false, env: { ...process.env } });
       token.onCancellationRequested(() => { proc.kill(); resolve(); });
       proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
@@ -440,11 +441,11 @@ export class GherkinTestController {
 
   private _terminal: vscode.Terminal | undefined;
 
-  private _fallback(command: string, uri: vscode.Uri): void {
+  private _fallback(spawnArgs: SpawnArgs, uri: vscode.Uri): void {
     if (!this._terminal || this._terminal.exitStatus !== undefined) {
       this._terminal = vscode.window.createTerminal({ name: 'GherkinFlow', cwd: getWorkspacePath(uri) });
     }
     this._terminal.show();
-    this._terminal.sendText(command, true);
+    this._terminal.sendText([spawnArgs.file, ...spawnArgs.args].join(' '), true);
   }
 }

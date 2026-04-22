@@ -212,6 +212,13 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.7
+- **Format Document** (`Shift+Alt+F`) fixes Gherkin indentation in one shot — Feature at 0, Scenario/Background at 2, steps at 4, Examples table rows at 6; works with Format on Save
+- **Run single Examples row** — each data row in a Scenario Outline Examples table gets its own `▶ Run | col1 | col2 |` CodeLens so you can test one row without commenting out the others
+- **Duplicate scenario name warning** — flags both occurrences inline and in the Problems panel when two scenarios in the same feature file share a name
+- **Shell injection fix** — scenario and tag names are now passed as separate args to `spawn` with `shell: false` instead of interpolated into a shell command string
+- **Async step file reads** — `_reloadFile` now uses `vscode.workspace.fs.readFile` instead of blocking `fs.readFileSync`
+
 ### 0.9.6
 Quality improvements: autocomplete now matches mid-string (type any word in a step and suggestions appear); diagnostics re-evaluation after step file changes is debounced to 300 ms to avoid redundant passes during rapid edits; diagnostics provider now reacts to the step index's own change event instead of maintaining a separate `FileSystemWatcher`.
 

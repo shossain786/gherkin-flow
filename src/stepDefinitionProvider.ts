@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 
 const STEP_RE = /^\s*(Given|When|Then|And|But|\*)\s+(.*)/i;
 const ANNOTATION_RE_JAVA = /@(?:Given|When|Then|And|But)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
@@ -106,8 +105,8 @@ export class StepDefinitionIndex {
   private async _reloadFile(uri: vscode.Uri): Promise<void> {
     this._removeFile(uri);
     try {
-      const text = fs.readFileSync(uri.fsPath, 'utf8');
-      this._parseFile(uri, text);
+      const bytes = await vscode.workspace.fs.readFile(uri);
+      this._parseFile(uri, Buffer.from(bytes).toString('utf8'));
     } catch {
       // unreadable — skip
     }

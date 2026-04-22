@@ -30,7 +30,7 @@ const EXAMPLES_RE   = /^\s*Examples:/i;
 const TABLE_ROW_RE  = /^\s*\|(.+)\|\s*$/;
 const TAG_RE        = /^\s*(@\S+(?:\s+@\S+)*)/;
 
-function substitute(template: string, vars: Record<string, string>): string {
+export function substitute(template: string, vars: Record<string, string>): string {
   return template.replace(/<([^>]+)>/g, (_, key) => vars[key] ?? `<${key}>`);
 }
 
