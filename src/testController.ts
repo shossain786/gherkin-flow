@@ -330,9 +330,11 @@ export class GherkinTestController {
     token: vscode.CancellationToken
   ): Promise<void> {
     return new Promise(resolve => {
-      const displayCmd = [spawnArgs.file, ...spawnArgs.args].join(' ');
-      run.appendOutput(`\r\n▶ ${displayCmd}\r\n\r\n`);
-      const proc = spawn(spawnArgs.file, spawnArgs.args, { cwd, shell: true, env: { ...process.env } });
+      // Quote args that contain spaces so the shell treats them as single tokens.
+      const quoted = (s: string) => /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
+      const cmdStr = [spawnArgs.file, ...spawnArgs.args].map(quoted).join(' ');
+      run.appendOutput(`\r\n▶ ${cmdStr}\r\n\r\n`);
+      const proc = spawn(cmdStr, [], { cwd, shell: true, env: { ...process.env } });
       token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
       proc.on('error', (err) => {
         run.appendOutput(`\r\nFailed to start process: ${err.message}\r\n`);
