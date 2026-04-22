@@ -99,6 +99,11 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           command: 'gherkinFlow.runFeatureByUri',
           arguments: [document.uri]
         }));
+        lenses.push(new vscode.CodeLens(range, {
+          title: '⚡ Dry Run',
+          command: 'gherkinFlow.dryRun',
+          arguments: [document.uri]
+        }));
         const missing = this._getMissingSteps(document);
         if (missing.length > 0) {
           lenses.push(new vscode.CodeLens(range, {
@@ -257,13 +262,19 @@ export async function activate(context: vscode.ExtensionContext) {
   // Generate missing step definitions
   const generateSteps = vscode.commands.registerCommand(
     'gherkinFlow.generateSteps',
-    (uri: vscode.Uri, missing) => executeGenerateSteps(uri, missing, stepIndex, controller.config)
+    (uri: vscode.Uri, missing) => executeGenerateSteps(uri, missing, stepIndex, controller.getConfig(uri))
   );
 
   // Re-run failed scenarios for a feature file
   const rerunFailed = vscode.commands.registerCommand(
     'gherkinFlow.rerunFailed',
     (uri: vscode.Uri) => controller.rerunFailed(uri)
+  );
+
+  // Dry run — validates step bindings without executing
+  const dryRunCmd = vscode.commands.registerCommand(
+    'gherkinFlow.dryRun',
+    (uri: vscode.Uri) => controller.dryRun(uri)
   );
 
   // Stop the active run
@@ -340,6 +351,7 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
   context.subscriptions.push(
+    dryRunCmd,
     formattingProvider,
     scenarioDecoration,
     noLinkUnderlineDecoration,

@@ -66,19 +66,18 @@ export class GherkinTestController {
   private readonly featureItems   = new Map<string, vscode.TestItem>();
   private readonly scenarioTags   = new Map<string, string[]>();
   private readonly stepLines      = new Map<string, number>();
-  private readonly _failedScenarios = new Map<string, vscode.TestItem[]>();
+  // keyed featureUri → Map<itemId, TestItem> so partial runs merge instead of replace
+  private readonly _failedScenarios = new Map<string, Map<string, vscode.TestItem>>();
   private readonly _onDidRunTests = new vscode.EventEmitter<vscode.Uri>();
   public  readonly onDidRunTests  = this._onDidRunTests.event;
   private readonly _onDidChangeRunning = new vscode.EventEmitter<boolean>();
   public  readonly onDidChangeRunning  = this._onDidChangeRunning.event;
   private _activeCts: vscode.CancellationTokenSource | undefined;
   private readonly decorations: InlineDecorationProvider;
-  private readonly _config: ProjectConfig;
+  private readonly _configCache = new Map<string, ProjectConfig>();
 
   constructor(context: vscode.ExtensionContext, decorations: InlineDecorationProvider) {
     this.decorations = decorations;
-    const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-    this._config = detectProject(cwd);
     this.ctrl = vscode.tests.createTestController('gherkinFlow', 'Gherkin Flow');
     context.subscriptions.push(this.ctrl);
 
@@ -106,7 +105,12 @@ export class GherkinTestController {
     this._discoverAll();  // eager discovery on activation
   }
 
-  public get config(): ProjectConfig { return this._config; }
+  public getConfig(uri: vscode.Uri): ProjectConfig {
+    const dir = path.dirname(uri.fsPath);
+    let cfg = this._configCache.get(dir);
+    if (!cfg) { cfg = detectProject(dir); this._configCache.set(dir, cfg); }
+    return cfg;
+  }
 
   public get isRunning(): boolean { return this._activeCts !== undefined; }
 
@@ -115,7 +119,7 @@ export class GherkinTestController {
   }
 
   public getFailedScenarios(uri: vscode.Uri): vscode.TestItem[] {
-    return this._failedScenarios.get(uri.fsPath) ?? [];
+    return [...(this._failedScenarios.get(uri.fsPath)?.values() ?? [])];
   }
 
   public async rerunFailed(uri: vscode.Uri): Promise<void> {
@@ -126,10 +130,11 @@ export class GherkinTestController {
 
   // Public API for CodeLens
   public async runScenario(scenarioName: string, uri: vscode.Uri): Promise<void> {
-    const cwd = getWorkspacePath(uri);
+    const config = this.getConfig(uri);
+    const cwd = config.projectRoot;
     const featRel = path.relative(cwd, uri.fsPath).replace(/\\/g, '/');
     const featureItem = this.featureItems.get(uri.fsPath);
-    if (!featureItem) { this._fallback(this._config.buildScenarioArgs(scenarioName, featRel), uri); return; }
+    if (!featureItem) { this._fallback(config.buildScenarioArgs(scenarioName, featRel), uri); return; }
 
     let target: vscode.TestItem | undefined;
     featureItem.children.forEach(child => {
@@ -141,22 +146,28 @@ export class GherkinTestController {
       }
     });
 
-    if (!target) { this._fallback(this._config.buildScenarioArgs(scenarioName, featRel), uri); return; }
+    if (!target) { this._fallback(config.buildScenarioArgs(scenarioName, featRel), uri); return; }
     await this._launchRun(new vscode.TestRunRequest([target]));
   }
 
   public async runFeature(uri: vscode.Uri): Promise<void> {
     const featureItem = this.featureItems.get(uri.fsPath);
     if (!featureItem) {
-      const cwd = getWorkspacePath(uri);
-      this._fallback(this._config.buildFeatureArgs(path.relative(cwd, uri.fsPath).replace(/\\/g, '/')), uri);
+      const config = this.getConfig(uri);
+      this._fallback(config.buildFeatureArgs(path.relative(config.projectRoot, uri.fsPath).replace(/\\/g, '/')), uri);
       return;
     }
     await this._launchRun(new vscode.TestRunRequest([featureItem]));
   }
 
   public runByTag(tag: string, uri: vscode.Uri): void {
-    this._fallback(this._config.buildTagArgs(tag), uri);
+    this._fallback(this.getConfig(uri).buildTagArgs(tag), uri);
+  }
+
+  public dryRun(uri: vscode.Uri): void {
+    const config = this.getConfig(uri);
+    const featRel = path.relative(config.projectRoot, uri.fsPath).replace(/\\/g, '/');
+    this._fallback(config.buildDryRunArgs(featRel), uri);
   }
 
   // Cancels any active run, then starts a new one — ensures only one run at a time.
@@ -291,27 +302,28 @@ export class GherkinTestController {
     for (const item of toRun) {
       if (token.isCancellationRequested) { break; }
 
-      const cwd = getWorkspacePath(item.uri!);
-      const level = itemLevel(item);
+      const config  = this.getConfig(item.uri!);
+      const cwd     = config.projectRoot;
+      const level   = itemLevel(item);
       this._markStarted(run, item);
 
       const featRel = path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/');
       let spawnArgs: SpawnArgs;
       switch (level) {
         case 'feature':
-          spawnArgs = this._config.buildFeatureArgs(featRel);
+          spawnArgs = config.buildFeatureArgs(featRel);
           break;
         case 'outline':
-          spawnArgs = this._config.buildScenarioArgs(outlineFilter(item.label), featRel);
+          spawnArgs = config.buildScenarioArgs(outlineFilter(item.label), featRel);
           break;
         case 'example':
-          spawnArgs = this._config.buildScenarioArgs(item.label, featRel);
+          spawnArgs = config.buildScenarioArgs(item.label, featRel);
           break;
         default:
-          spawnArgs = this._config.buildScenarioArgs(item.label, featRel);
+          spawnArgs = config.buildScenarioArgs(item.label, featRel);
       }
 
-      await this._execute(run, item, cwd, spawnArgs, token);
+      await this._execute(run, item, config, spawnArgs, token);
     }
 
     run.end();
@@ -325,10 +337,11 @@ export class GherkinTestController {
   private async _execute(
     run: vscode.TestRun,
     item: vscode.TestItem,
-    cwd: string,
+    config: ProjectConfig,
     spawnArgs: SpawnArgs,
     token: vscode.CancellationToken
   ): Promise<void> {
+    const cwd = config.projectRoot;
     return new Promise(resolve => {
       // Quote args that contain spaces so the shell treats them as single tokens.
       const quoted = (s: string) => /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
@@ -343,17 +356,27 @@ export class GherkinTestController {
       proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
-        const reportPath = path.join(cwd, this._config.reportPath);
+        const reportPath = path.join(cwd, config.reportPath);
         const report = parseReport(reportPath);
         if (report.scenarios.size === 0 && !fs.existsSync(reportPath)) {
           vscode.window.showWarningMessage(
-            `GherkinFlow: Report not found at "${this._config.reportPath}". Add the JSON reporter plugin to your Cucumber options.`
+            `GherkinFlow: Report not found at "${config.reportPath}". Add the JSON reporter plugin to your Cucumber options.`
           );
         }
         const failures: vscode.TestItem[] = [];
         this._applyResults(run, item, report, failures);
         if (item.uri) {
-          this._failedScenarios.set(item.uri.fsPath, failures);
+          // Merge this run's results into the persistent failure map so that
+          // running a single scenario doesn't wipe failures from other scenarios.
+          const featureUri = item.uri.fsPath;
+          if (!this._failedScenarios.has(featureUri)) {
+            this._failedScenarios.set(featureUri, new Map());
+          }
+          const featureFailures = this._failedScenarios.get(featureUri)!;
+          for (const s of this._collectScenarioItems(item)) {
+            if (failures.includes(s)) { featureFailures.set(s.id, s); }
+            else                      { featureFailures.delete(s.id); }
+          }
           this._onDidRunTests.fire(item.uri);
           this._applyInlineDecorations(item, report);
         }
@@ -412,8 +435,13 @@ export class GherkinTestController {
     const stepItems: vscode.TestItem[] = [];
     item.children.forEach(c => stepItems.push(c));
 
+    // Some Cucumber JSON reporters omit background steps from scenario elements.
+    // If the JSON has fewer steps than our test items, offset so scenario steps align.
+    const bgOffset = Math.max(0, stepItems.length - parsed.steps.length);
+
     stepItems.forEach((stepItem, idx) => {
-      const stepResult = parsed.steps[idx];
+      const stepResult = parsed.steps[idx - bgOffset];
+      if (idx < bgOffset) { run.skipped(stepItem); return; }
       if (!stepResult) { run.skipped(stepItem); return; }
 
       const icon = stepResult.status === 'passed' ? '✓' : stepResult.status === 'failed' ? '✗' : '–';
@@ -478,7 +506,7 @@ export class GherkinTestController {
 
   private _fallback(spawnArgs: SpawnArgs, uri: vscode.Uri): void {
     if (!this._terminal || this._terminal.exitStatus !== undefined) {
-      this._terminal = vscode.window.createTerminal({ name: 'GherkinFlow', cwd: getWorkspacePath(uri) });
+      this._terminal = vscode.window.createTerminal({ name: 'GherkinFlow', cwd: this.getConfig(uri).projectRoot });
     }
     this._terminal.show();
     this._terminal.sendText([spawnArgs.file, ...spawnArgs.args].join(' '), true);

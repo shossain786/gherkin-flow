@@ -212,6 +212,15 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.13
+- **Monorepo support** — build tool is now detected by walking up from each feature file's directory instead of always using the workspace root. Maven, Gradle, and Node.js sub-projects in a multi-module repo each use their own `pom.xml` / `gradlew` / `package.json` as the working directory
+- **Background step misalignment fix** — some Cucumber JSON reporters omit background steps from scenario elements; step results now align correctly by detecting the offset rather than silently decorating the wrong lines
+- **`rerunFailed` scope fix** — running a single scenario no longer overwrites the failure list for the whole feature; failures are merged per scenario so Re-run always targets the correct set
+- **Dry run** — `⚡ Dry Run` CodeLens on every Feature line; runs Cucumber with `--dry-run` / `-Dcucumber.filter.dryRun=true` to validate step bindings instantly without executing tests
+
+### 0.9.12
+Fix: scenario names containing double quotes (`"`) now run correctly — quotes are replaced with `.` (regex wildcard) in the Cucumber filter value, which matches correctly and avoids `cmd.exe` shell quoting issues on Windows.
+
 ### 0.9.11
 Fix: Scenario Outline names (and any scenario name) containing spaces now run correctly — args with spaces are quoted before being passed to the shell, so Maven/Gradle no longer interprets words after the first space as extra lifecycle phases.
 

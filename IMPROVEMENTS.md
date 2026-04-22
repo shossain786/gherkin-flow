@@ -32,13 +32,13 @@
 
 - [x] **Scenario Outline examples all share the same `line` (the outline's line)** — `featureParser` sets `line: outlineTemplate.line` for every expanded row. The actual data row line is available at parse time (`i`); use it so inline decorations and Test Explorer navigation land on the right line.
 
-- [ ] **`rerunFailed` runs scenarios from the last run of *any* feature, not the one you clicked** — `_failedScenarios` is keyed by `uri.fsPath` but is only correct if the last run was for that exact file; running a different file first silently clears it. Document this or scope it properly.
+- [x] **`rerunFailed` runs scenarios from the last run of *any* feature, not the one you clicked** — `_failedScenarios` is keyed by `uri.fsPath` but is only correct if the last run was for that exact file; running a different file first silently clears it. Document this or scope it properly.
 
 - [x] **`gradleExe()` is defined but never called** — `gradleConfig` is called directly with a string. The function is dead code; remove it.
 
-- [ ] **`detectProject` only looks at `workspaceFolders[0]`** — in a monorepo with multiple sub-projects, every feature file uses the root detector. Walk up from the feature file's directory to find the nearest `pom.xml` / `package.json` instead.
+- [x] **`detectProject` only looks at `workspaceFolders[0]`** — in a monorepo with multiple sub-projects, every feature file uses the root detector. Walk up from the feature file's directory to find the nearest `pom.xml` / `package.json` instead.
 
-- [ ] **Background steps may cause step index misalignment** — if the Cucumber JSON reporter omits background steps from scenario elements (some versions do), step index alignment between `featureParser` and `reportParser` breaks silently.
+- [x] **Background steps may cause step index misalignment** — if the Cucumber JSON reporter omits background steps from scenario elements (some versions do), step index alignment between `featureParser` and `reportParser` breaks silently.
 
 ---
 
@@ -58,7 +58,7 @@
 
 ## Killer Feature Ideas
 
-- [ ] **Dry run mode** — add a `▶ Dry Run` CodeLens that runs Cucumber with `--dry-run`. Validates all step bindings instantly without executing anything.
+- [x] **Dry run mode** — add a `▶ Dry Run` CodeLens that runs Cucumber with `--dry-run`. Validates all step bindings instantly without executing anything.
 
 - [ ] **Inlay hints for step parameters** — use the VS Code inlay hints API (1.79+) to show parameter type labels directly on `{string}` / `{int}` values in the feature file.
 
