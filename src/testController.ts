@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { parseFeatureFile } from './featureParser';
@@ -107,7 +108,8 @@ export class GherkinTestController {
   public async rerunFailed(uri: vscode.Uri): Promise<void> {
     const failed = this.getFailedScenarios(uri);
     if (failed.length === 0) { return; }
-    await this._runHandler(new vscode.TestRunRequest(failed), new vscode.CancellationTokenSource().token);
+    const cts = new vscode.CancellationTokenSource();
+    try { await this._runHandler(new vscode.TestRunRequest(failed), cts.token); } finally { cts.dispose(); }
   }
 
   // Public API for CodeLens
@@ -128,7 +130,8 @@ export class GherkinTestController {
     });
 
     if (!target) { this._fallback(this._config.buildScenarioCmd(scenarioName, featRel), uri); return; }
-    await this._runHandler(new vscode.TestRunRequest([target]), new vscode.CancellationTokenSource().token);
+    const cts = new vscode.CancellationTokenSource();
+    try { await this._runHandler(new vscode.TestRunRequest([target]), cts.token); } finally { cts.dispose(); }
   }
 
   public async runFeature(uri: vscode.Uri): Promise<void> {
@@ -138,7 +141,8 @@ export class GherkinTestController {
       this._fallback(this._config.buildFeatureCmd(path.relative(cwd, uri.fsPath).replace(/\\/g, '/')), uri);
       return;
     }
-    await this._runHandler(new vscode.TestRunRequest([featureItem]), new vscode.CancellationTokenSource().token);
+    const cts = new vscode.CancellationTokenSource();
+    try { await this._runHandler(new vscode.TestRunRequest([featureItem]), cts.token); } finally { cts.dispose(); }
   }
 
   public runByTag(tag: string, uri: vscode.Uri): void {
@@ -153,12 +157,12 @@ export class GherkinTestController {
   }
 
   private async _loadFile(uri: vscode.Uri): Promise<void> {
+    this._deleteFile(uri);
     try {
       const doc = await vscode.workspace.openTextDocument(uri);
       const parsed = parseFeatureFile(doc);
       if (!parsed) { return; }
 
-      this.ctrl.items.delete(uri.fsPath);
       const featureItem = this.ctrl.createTestItem(uri.fsPath, parsed.name, uri);
       featureItem.range = new vscode.Range(parsed.line, 0, parsed.line, 0);
 
@@ -300,7 +304,13 @@ export class GherkinTestController {
       proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
-        const report = parseReport(path.join(cwd, this._config.reportPath));
+        const reportPath = path.join(cwd, this._config.reportPath);
+        const report = parseReport(reportPath);
+        if (report.scenarios.size === 0 && !fs.existsSync(reportPath)) {
+          vscode.window.showWarningMessage(
+            `GherkinFlow: Report not found at "${this._config.reportPath}". Add the JSON reporter plugin to your Cucumber options.`
+          );
+        }
         const failures: vscode.TestItem[] = [];
         this._applyResults(run, item, report, failures);
         if (item.uri) {
@@ -420,9 +430,13 @@ export class GherkinTestController {
     if (failures.length > 0) { this.decorations.setFailures(item.uri, failures); }
   }
 
+  private _terminal: vscode.Terminal | undefined;
+
   private _fallback(command: string, uri: vscode.Uri): void {
-    const terminal = vscode.window.createTerminal({ name: 'GherkinFlow', cwd: getWorkspacePath(uri) });
-    terminal.show();
-    terminal.sendText(command, true);
+    if (!this._terminal || this._terminal.exitStatus !== undefined) {
+      this._terminal = vscode.window.createTerminal({ name: 'GherkinFlow', cwd: getWorkspacePath(uri) });
+    }
+    this._terminal.show();
+    this._terminal.sendText(command, true);
   }
 }

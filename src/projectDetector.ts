@@ -44,11 +44,6 @@ function nodeConfig(cwd: string): ProjectConfig {
   };
 }
 
-function gradleExe(): string {
-  if (IS_WIN) { return 'gradlew.bat'; }
-  return './gradlew';
-}
-
 function gradleConfig(exe: string): ProjectConfig {
   const safePath   = (s: string) => s.replace(/"/g, '\\"');
   const safeFilter = (s: string) => s.replace(/"/g, '.');

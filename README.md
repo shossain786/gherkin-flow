@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.5
+Internal quality fixes: map leaks on feature file reload, `CancellationTokenSource` disposed after each run, `GherkinFlow` terminal reused across tag runs, warning shown when Cucumber JSON report is missing after a run, decoration types properly disposed on deactivation, dead code removed.
+
 ### 0.9.4
 Fix: Ctrl+click on a step again opens the step definition in a new permanent tab. The DocumentLinkProvider is restored for navigation; a `textDecoration: none` decoration is applied over matched step text to cancel the underline VS Code would otherwise show.
 
