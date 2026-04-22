@@ -212,6 +212,10 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.15
+- **Watch mode** — click `👁 Watch` above any scenario to auto-rerun it on save. Saving the feature file re-runs it immediately; saving a step definition file re-runs all watched scenarios (with a short debounce). Click `👁 Watching` to stop.
+- **Inlay type hints** — parameter types (`string`, `int`, `float`, `word`) appear as inline grey annotations after each matched value in a step, e.g. `Given I enter "admin"`: string. Powered by the VS Code Inlay Hints API.
+
 ### 0.9.14
 Fix: dry run (and tag runs) sent Maven/Gradle system property args (e.g. `-Dcucumber.features=...`) to the terminal without quoting. PowerShell/cmd.exe split these at the `.`, causing Maven to receive `.features=...` as an unknown lifecycle phase. Args starting with `-D` or `-P` are now quoted before being sent to the terminal.
 

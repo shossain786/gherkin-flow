@@ -2,7 +2,7 @@
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
   "description": "Debug Gherkin tests 5× faster. Run scenarios, see step-by-step pass/fail, jump to definitions, generate stubs — all without leaving your feature file.",
-  "version": "0.9.14",
+  "version": "0.9.15",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -87,6 +87,11 @@
       {
         "command": "gherkinFlow.openStepDef",
         "title": "Open Step Definition (GherkinFlow)",
+        "category": "GherkinFlow"
+      },
+      {
+        "command": "gherkinFlow.watchScenario",
+        "title": "Toggle Watch Scenario (GherkinFlow)",
         "category": "GherkinFlow"
       }
     ],

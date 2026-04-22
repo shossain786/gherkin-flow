@@ -8,6 +8,8 @@ import { InlineDecorationProvider } from './inlineDecorationProvider';
 import { StepGeneratorProvider, collectMissingSteps, executeGenerateSteps } from './stepGeneratorProvider';
 import { GherkinFormattingProvider } from './featureFormatter';
 import { substitute } from './featureParser';
+import { WatchManager } from './watchProvider';
+import { GherkinInlayHintsProvider } from './inlayHintsProvider';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -63,10 +65,12 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
 
   constructor(
     private readonly _stepIndex: StepDefinitionIndex,
-    private readonly _controller: GherkinTestController
+    private readonly _controller: GherkinTestController,
+    private readonly _watchManager: WatchManager
   ) {
     _controller.onDidRunTests(() => this._onChange.fire());
     _stepIndex.onDidChange(() => { this._missingCache.clear(); this._onChange.fire(); });
+    _watchManager.onDidChange(() => this._onChange.fire());
   }
 
   private _getMissingSteps(document: vscode.TextDocument) {
@@ -175,6 +179,14 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           lenses.push(new vscode.CodeLens(range, {
             title: '🔄 Re-run',
             command: 'gherkinFlow.runScenarioByName',
+            arguments: [scenarioName, document.uri]
+          }));
+        }
+        if (!isOutline) {
+          const watching = this._watchManager.isWatched(scenarioName, document.uri);
+          lenses.push(new vscode.CodeLens(range, {
+            title: watching ? '👁 Watching' : '👁 Watch',
+            command: 'gherkinFlow.watchScenario',
             arguments: [scenarioName, document.uri]
           }));
         }
@@ -309,9 +321,16 @@ export async function activate(context: vscode.ExtensionContext) {
   );
 
 
+  const watchManager = new WatchManager(context, (name, uri) => controller.runScenario(name, uri));
+
+  const watchScenarioCmd = vscode.commands.registerCommand(
+    'gherkinFlow.watchScenario',
+    (scenarioName: string, uri: vscode.Uri) => watchManager.toggle(scenarioName, uri)
+  );
+
   const codeLens = vscode.languages.registerCodeLensProvider(
     { pattern: '**/*.feature' },
-    new GherkinFlowCodeLensProvider(stepIndex, controller)
+    new GherkinFlowCodeLensProvider(stepIndex, controller, watchManager)
   );
 
   const defProvider = vscode.languages.registerDefinitionProvider(
@@ -350,8 +369,15 @@ export async function activate(context: vscode.ExtensionContext) {
     new GherkinFormattingProvider()
   );
 
+  const inlayHintsProvider = vscode.languages.registerInlayHintsProvider(
+    { pattern: '**/*.feature' },
+    new GherkinInlayHintsProvider(stepIndex)
+  );
+
   context.subscriptions.push(
     dryRunCmd,
+    watchScenarioCmd,
+    inlayHintsProvider,
     formattingProvider,
     scenarioDecoration,
     noLinkUnderlineDecoration,
