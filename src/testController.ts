@@ -69,6 +69,9 @@ export class GherkinTestController {
   private readonly _failedScenarios = new Map<string, vscode.TestItem[]>();
   private readonly _onDidRunTests = new vscode.EventEmitter<vscode.Uri>();
   public  readonly onDidRunTests  = this._onDidRunTests.event;
+  private readonly _onDidChangeRunning = new vscode.EventEmitter<boolean>();
+  public  readonly onDidChangeRunning  = this._onDidChangeRunning.event;
+  private _activeCts: vscode.CancellationTokenSource | undefined;
   private readonly decorations: InlineDecorationProvider;
   private readonly _config: ProjectConfig;
 
@@ -101,6 +104,12 @@ export class GherkinTestController {
 
   public get config(): ProjectConfig { return this._config; }
 
+  public get isRunning(): boolean { return this._activeCts !== undefined; }
+
+  public stopRun(): void {
+    this._activeCts?.cancel();
+  }
+
   public getFailedScenarios(uri: vscode.Uri): vscode.TestItem[] {
     return this._failedScenarios.get(uri.fsPath) ?? [];
   }
@@ -108,8 +117,7 @@ export class GherkinTestController {
   public async rerunFailed(uri: vscode.Uri): Promise<void> {
     const failed = this.getFailedScenarios(uri);
     if (failed.length === 0) { return; }
-    const cts = new vscode.CancellationTokenSource();
-    try { await this._runHandler(new vscode.TestRunRequest(failed), cts.token); } finally { cts.dispose(); }
+    await this._launchRun(new vscode.TestRunRequest(failed));
   }
 
   // Public API for CodeLens
@@ -130,8 +138,7 @@ export class GherkinTestController {
     });
 
     if (!target) { this._fallback(this._config.buildScenarioArgs(scenarioName, featRel), uri); return; }
-    const cts = new vscode.CancellationTokenSource();
-    try { await this._runHandler(new vscode.TestRunRequest([target]), cts.token); } finally { cts.dispose(); }
+    await this._launchRun(new vscode.TestRunRequest([target]));
   }
 
   public async runFeature(uri: vscode.Uri): Promise<void> {
@@ -141,12 +148,30 @@ export class GherkinTestController {
       this._fallback(this._config.buildFeatureArgs(path.relative(cwd, uri.fsPath).replace(/\\/g, '/')), uri);
       return;
     }
-    const cts = new vscode.CancellationTokenSource();
-    try { await this._runHandler(new vscode.TestRunRequest([featureItem]), cts.token); } finally { cts.dispose(); }
+    await this._launchRun(new vscode.TestRunRequest([featureItem]));
   }
 
   public runByTag(tag: string, uri: vscode.Uri): void {
     this._fallback(this._config.buildTagArgs(tag), uri);
+  }
+
+  // Cancels any active run, then starts a new one — ensures only one run at a time.
+  private async _launchRun(request: vscode.TestRunRequest): Promise<void> {
+    if (this._activeCts) {
+      this._activeCts.cancel();
+      this._activeCts.dispose();
+      this._activeCts = undefined;
+    }
+    const cts = new vscode.CancellationTokenSource();
+    this._activeCts = cts;
+    this._onDidChangeRunning.fire(true);
+    try {
+      await this._runHandler(request, cts.token);
+    } finally {
+      cts.dispose();
+      this._activeCts = undefined;
+      this._onDidChangeRunning.fire(false);
+    }
   }
 
   // --- Private ---

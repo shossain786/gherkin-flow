@@ -2,7 +2,7 @@
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
   "description": "Debug Gherkin tests 5× faster. Run scenarios, see step-by-step pass/fail, jump to definitions, generate stubs — all without leaving your feature file.",
-  "version": "0.9.7",
+  "version": "0.9.8",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -72,6 +72,11 @@
       {
         "command": "gherkinFlow.rerunFailed",
         "title": "Re-run Failed Scenarios (GherkinFlow)",
+        "category": "GherkinFlow"
+      },
+      {
+        "command": "gherkinFlow.stopRun",
+        "title": "Stop Running Test (GherkinFlow)",
         "category": "GherkinFlow"
       },
       {

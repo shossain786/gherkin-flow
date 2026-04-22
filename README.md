@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.8
+Fix: clicking a run button while a test is already running now cancels the active run before starting the new one — no more two processes running simultaneously. A **$(stop-circle) Stop GherkinFlow** button appears in the status bar during any run and cancels it immediately when clicked.
+
 ### 0.9.7
 - **Format Document** (`Shift+Alt+F`) fixes Gherkin indentation in one shot — Feature at 0, Scenario/Background at 2, steps at 4, Examples table rows at 6; works with Format on Save
 - **Run single Examples row** — each data row in a Scenario Outline Examples table gets its own `▶ Run | col1 | col2 |` CodeLens so you can test one row without commenting out the others

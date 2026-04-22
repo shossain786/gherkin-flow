@@ -266,6 +266,24 @@ export async function activate(context: vscode.ExtensionContext) {
     (uri: vscode.Uri) => controller.rerunFailed(uri)
   );
 
+  // Stop the active run
+  const stopRunCmd = vscode.commands.registerCommand(
+    'gherkinFlow.stopRun',
+    () => controller.stopRun()
+  );
+
+  // Status bar stop button — visible only while a run is in progress
+  const stopStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+  stopStatusBar.text = '$(stop-circle) Stop GherkinFlow';
+  stopStatusBar.tooltip = 'Cancel the running GherkinFlow test';
+  stopStatusBar.command = 'gherkinFlow.stopRun';
+  stopStatusBar.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+  context.subscriptions.push(stopStatusBar, stopRunCmd);
+
+  controller.onDidChangeRunning(running => {
+    if (running) { stopStatusBar.show(); } else { stopStatusBar.hide(); }
+  });
+
   // Open step definition in a new permanent tab (invoked by DocumentLinkProvider)
   const openStepDef = vscode.commands.registerCommand(
     'gherkinFlow.openStepDef',
