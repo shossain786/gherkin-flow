@@ -85,7 +85,11 @@ export class GherkinTestController {
     this.ctrl.createRunProfile(
       'Run',
       vscode.TestRunProfileKind.Run,
-      (req, token) => this._runHandler(req, token),
+      async (req, token) => {
+        this._onDidChangeRunning.fire(true);
+        try { await this._runHandler(req, token); }
+        finally { this._onDidChangeRunning.fire(false); }
+      },
       true
     );
 
