@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.14
+Fix: dry run (and tag runs) sent Maven/Gradle system property args (e.g. `-Dcucumber.features=...`) to the terminal without quoting. PowerShell/cmd.exe split these at the `.`, causing Maven to receive `.features=...` as an unknown lifecycle phase. Args starting with `-D` or `-P` are now quoted before being sent to the terminal.
+
 ### 0.9.13
 - **Monorepo support** — build tool is now detected by walking up from each feature file's directory instead of always using the workspace root. Maven, Gradle, and Node.js sub-projects in a multi-module repo each use their own `pom.xml` / `gradlew` / `package.json` as the working directory
 - **Background step misalignment fix** — some Cucumber JSON reporters omit background steps from scenario elements; step results now align correctly by detecting the offset rather than silently decorating the wrong lines

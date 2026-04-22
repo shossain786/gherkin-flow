@@ -509,6 +509,10 @@ export class GherkinTestController {
       this._terminal = vscode.window.createTerminal({ name: 'GherkinFlow', cwd: this.getConfig(uri).projectRoot });
     }
     this._terminal.show();
-    this._terminal.sendText([spawnArgs.file, ...spawnArgs.args].join(' '), true);
+    // Quote args that contain spaces or start with -D/-P so PowerShell/cmd.exe
+    // don't split system properties (e.g. -Dcucumber.features=...) at the dot.
+    const quoted = (s: string) => (/\s/.test(s) || s.startsWith('-D') || s.startsWith('-P'))
+      ? `"${s.replace(/"/g, '\\"')}"` : s;
+    this._terminal.sendText([spawnArgs.file, ...spawnArgs.args].map(quoted).join(' '), true);
   }
 }
