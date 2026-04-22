@@ -332,8 +332,12 @@ export class GherkinTestController {
     return new Promise(resolve => {
       const displayCmd = [spawnArgs.file, ...spawnArgs.args].join(' ');
       run.appendOutput(`\r\n▶ ${displayCmd}\r\n\r\n`);
-      const proc = spawn(spawnArgs.file, spawnArgs.args, { cwd, shell: false, env: { ...process.env } });
-      token.onCancellationRequested(() => { proc.kill(); resolve(); });
+      const proc = spawn(spawnArgs.file, spawnArgs.args, { cwd, shell: true, env: { ...process.env } });
+      token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
+      proc.on('error', (err) => {
+        run.appendOutput(`\r\nFailed to start process: ${err.message}\r\n`);
+        resolve();
+      });
       proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {

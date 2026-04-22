@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.10
+Fix: tests not running on Windows — `shell: false` prevented batch-script executables (`mvn.cmd`, `npx.cmd`, `gradlew.bat`) from being found. Reverted to `shell: true` while keeping the args-array structure. Added `proc.on('error')` handler so a failed spawn always resolves cleanly instead of hanging the cancel button indefinitely.
+
 ### 0.9.9
 Fix: stop button now appears for runs triggered from the Test Explorer gutter/panel as well as from CodeLens buttons — the run profile callback now fires the running state event in both paths.
 
