@@ -109,7 +109,7 @@ export function parseFeatureFile(document: vscode.TextDocument): ParsedFeature |
           feature.scenarios.push({
             keyword: outlineTemplate.keyword,
             name: expandedName,
-            line: outlineTemplate.line,
+            line: i,
             steps: expandedSteps,
             tags: [...outlineTemplate.tags],
             outlineName: outlineTemplate.name

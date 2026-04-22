@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.6
+Quality improvements: autocomplete now matches mid-string (type any word in a step and suggestions appear); diagnostics re-evaluation after step file changes is debounced to 300 ms to avoid redundant passes during rapid edits; diagnostics provider now reacts to the step index's own change event instead of maintaining a separate `FileSystemWatcher`.
+
 ### 0.9.5
 Internal quality fixes: map leaks on feature file reload, `CancellationTokenSource` disposed after each run, `GherkinFlow` terminal reused across tag runs, warning shown when Cucumber JSON report is missing after a run, decoration types properly disposed on deactivation, dead code removed.
 

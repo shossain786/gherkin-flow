@@ -96,7 +96,7 @@ export class GherkinTestController {
     this.watcher.onDidDelete(uri => this._deleteFile(uri));
     context.subscriptions.push(this.watcher);
 
-    this._discoverAll();
+    this._discoverAll();  // eager discovery on activation
   }
 
   public get config(): ProjectConfig { return this._config; }
@@ -151,7 +151,10 @@ export class GherkinTestController {
 
   // --- Private ---
 
+  private _discovered = false;
   private async _discoverAll(): Promise<void> {
+    if (this._discovered) { return; }
+    this._discovered = true;
     const uris = await vscode.workspace.findFiles('**/*.feature', '**/node_modules/**');
     for (const uri of uris) { await this._loadFile(uri); }
   }
@@ -341,13 +344,18 @@ export class GherkinTestController {
     }
   }
 
+  private _reportKey(item: vscode.TestItem): string {
+    const featureItem = item.uri ? this.featureItems.get(item.uri.fsPath) : undefined;
+    return featureItem ? `${featureItem.label}::${item.label}` : item.label;
+  }
+
   private _applyOutline(run: vscode.TestRun, outlineItem: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
     let failed = false;
     let totalMs = 0;
 
     outlineItem.children.forEach(exampleItem => {
       this._applyScenario(run, exampleItem, report, failures);
-      const parsed = report.scenarios.get(exampleItem.label);
+      const parsed = report.scenarios.get(this._reportKey(exampleItem));
       if (parsed) {
         totalMs += parsed.durationMs;
         if (parsed.overallStatus !== 'passed') { failed = true; }
@@ -362,7 +370,7 @@ export class GherkinTestController {
   }
 
   private _applyScenario(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
-    const parsed = report.scenarios.get(item.label);
+    const parsed = report.scenarios.get(this._reportKey(item));
     if (!parsed) { run.skipped(item); item.children.forEach(c => run.skipped(c)); return; }
 
     const stepItems: vscode.TestItem[] = [];

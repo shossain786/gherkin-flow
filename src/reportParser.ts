@@ -83,7 +83,7 @@ export function parseReport(reportPath: string): ParsedReport {
 
         const durationMs = steps.reduce((sum, s) => sum + s.durationMs, 0);
 
-        map.set(el.name, {
+        map.set(`${feature.name}::${el.name}`, {
           name: el.name,
           overallStatus: deriveStatus(steps),
           steps,

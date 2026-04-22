@@ -28,7 +28,7 @@ export class GherkinCompletionProvider implements vscode.CompletionItemProvider 
     const typed = lineText.slice(prefixMatch[0].length).toLowerCase();
 
     return this._index.getAllPatterns()
-      .filter(p => p.toLowerCase().startsWith(typed))
+      .filter(p => p.toLowerCase().includes(typed))
       .map(rawPattern => {
         const item = new vscode.CompletionItem(rawPattern, vscode.CompletionItemKind.Function);
         item.insertText = new vscode.SnippetString(toSnippet(rawPattern));

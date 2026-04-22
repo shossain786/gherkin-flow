@@ -55,12 +55,23 @@ function findScenarioAtPosition(document: vscode.TextDocument, position: vscode.
 class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
   private readonly _onChange = new vscode.EventEmitter<void>();
   readonly onDidChangeCodeLenses = this._onChange.event;
+  private readonly _missingCache = new Map<string, { version: number; steps: ReturnType<typeof collectMissingSteps> }>();
 
   constructor(
     private readonly _stepIndex: StepDefinitionIndex,
     private readonly _controller: GherkinTestController
   ) {
     _controller.onDidRunTests(() => this._onChange.fire());
+    _stepIndex.onDidChange(() => { this._missingCache.clear(); this._onChange.fire(); });
+  }
+
+  private _getMissingSteps(document: vscode.TextDocument) {
+    const key = document.uri.toString();
+    const cached = this._missingCache.get(key);
+    if (cached && cached.version === document.version) { return cached.steps; }
+    const steps = collectMissingSteps(document, this._stepIndex);
+    this._missingCache.set(key, { version: document.version, steps });
+    return steps;
   }
 
   provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
@@ -79,7 +90,7 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           arguments: [document.uri]
         }));
         // Generate missing steps lens
-        const missing = collectMissingSteps(document, this._stepIndex);
+        const missing = this._getMissingSteps(document);
         if (missing.length > 0) {
           lenses.push(new vscode.CodeLens(range, {
             title: `⚡ Generate Missing Steps (${missing.length})`,

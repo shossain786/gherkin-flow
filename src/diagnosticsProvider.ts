@@ -2,11 +2,9 @@ import * as vscode from 'vscode';
 import { parseFeatureFile } from './featureParser';
 import { StepDefinitionIndex } from './stepDefinitionProvider';
 
-const STEP_RE = /^\s*(Given|When|Then|And|But|\*)\s+(.*)/i;
-
 export class GherkinDiagnosticsProvider {
   private readonly _collection: vscode.DiagnosticCollection;
-  private readonly _stepWatcher: vscode.FileSystemWatcher;
+  private _debounceTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor(
     private readonly _index: StepDefinitionIndex,
@@ -17,14 +15,9 @@ export class GherkinDiagnosticsProvider {
 
     context.subscriptions.push(
       vscode.workspace.onDidOpenTextDocument(doc => this._update(doc)),
-      vscode.workspace.onDidChangeTextDocument(e => this._update(e.document))
+      vscode.workspace.onDidChangeTextDocument(e => this._update(e.document)),
+      _index.onDidChange(() => this._updateAllDebounced())
     );
-
-    this._stepWatcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js}');
-    this._stepWatcher.onDidCreate(() => this._updateAll());
-    this._stepWatcher.onDidChange(() => this._updateAll());
-    this._stepWatcher.onDidDelete(() => this._updateAll());
-    context.subscriptions.push(this._stepWatcher);
   }
 
   async initialScan(): Promise<void> {
@@ -65,9 +58,13 @@ export class GherkinDiagnosticsProvider {
     this._collection.set(document.uri, diagnostics);
   }
 
-  private _updateAll(): void {
-    for (const doc of vscode.workspace.textDocuments) {
-      this._update(doc);
-    }
+  private _updateAllDebounced(): void {
+    if (this._debounceTimer !== undefined) { clearTimeout(this._debounceTimer); }
+    this._debounceTimer = setTimeout(() => {
+      this._debounceTimer = undefined;
+      for (const doc of vscode.workspace.textDocuments) {
+        this._update(doc);
+      }
+    }, 300);
   }
 }
