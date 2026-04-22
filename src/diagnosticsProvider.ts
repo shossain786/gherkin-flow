@@ -35,16 +35,15 @@ export class GherkinDiagnosticsProvider {
     const diagnostics: vscode.Diagnostic[] = [];
     const seen = new Set<number>();
 
-    // Duplicate scenario name detection — flag every occurrence when a name appears more than once.
-    // Scenario Outline expanded rows share the same outlineName; compare on the outline template
-    // name for those so each expanded example doesn't count as a separate duplicate.
+    // Duplicate scenario name detection — only applies to regular scenarios.
+    // Scenario Outline expanded rows are intentionally skipped: each row has a different
+    // line (the data row), so they would all appear as duplicates of each other.
     const nameToLines = new Map<string, number[]>();
     for (const scenario of parsed.scenarios) {
-      const key = (scenario.outlineName ?? scenario.name).toLowerCase();
+      if (scenario.outlineName) { continue; }
+      const key = scenario.name.toLowerCase();
       if (!nameToLines.has(key)) { nameToLines.set(key, []); }
-      // Only record the first expanded row for each outline (they all share the same template line).
-      const lines = nameToLines.get(key)!;
-      if (!lines.includes(scenario.line)) { lines.push(scenario.line); }
+      nameToLines.get(key)!.push(scenario.line);
     }
     for (const [, lines] of nameToLines) {
       if (lines.length < 2) { continue; }
