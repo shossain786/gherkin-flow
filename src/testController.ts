@@ -68,6 +68,7 @@ export class GherkinTestController {
   private readonly stepLines      = new Map<string, number>();
   // keyed featureUri → Map<itemId, TestItem> so partial runs merge instead of replace
   private readonly _failedScenarios = new Map<string, Map<string, vscode.TestItem>>();
+  private readonly _lastStatus = new Map<string, 'passed' | 'failed'>();
   private readonly _onDidRunTests = new vscode.EventEmitter<vscode.Uri>();
   public  readonly onDidRunTests  = this._onDidRunTests.event;
   private readonly _onDidChangeRunning = new vscode.EventEmitter<boolean>();
@@ -116,6 +117,10 @@ export class GherkinTestController {
 
   public stopRun(): void {
     this._activeCts?.cancel();
+  }
+
+  public getScenarioStatus(uri: vscode.Uri, name: string): 'passed' | 'failed' | undefined {
+    return this._lastStatus.get(`${uri.fsPath}::${name}`);
   }
 
   public getFailedScenarios(uri: vscode.Uri): vscode.TestItem[] {
@@ -462,11 +467,13 @@ export class GherkinTestController {
 
     if (parsed.overallStatus === 'passed') {
       run.passed(item, parsed.durationMs);
+      if (item.uri) { this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'passed'); }
     } else if (parsed.overallStatus === 'failed') {
       const msg = new vscode.TestMessage(buildFailureMessage(parsed));
       if (item.uri && item.range) { msg.location = new vscode.Location(item.uri, item.range.start); }
       run.failed(item, msg, parsed.durationMs);
       failures.push(item);
+      if (item.uri) { this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'failed'); }
     } else {
       run.skipped(item);
     }

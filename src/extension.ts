@@ -10,6 +10,8 @@ import { GherkinFormattingProvider } from './featureFormatter';
 import { substitute } from './featureParser';
 import { WatchManager } from './watchProvider';
 import { GherkinInlayHintsProvider } from './inlayHintsProvider';
+import { TagsTreeProvider } from './tagsTreeProvider';
+import { StepUsageIndex, StepUsageCodeLensProvider } from './stepUsageProvider';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -374,7 +376,25 @@ export async function activate(context: vscode.ExtensionContext) {
     new GherkinInlayHintsProvider(stepIndex)
   );
 
+  // Tags sidebar
+  const tagsProvider = new TagsTreeProvider(context, controller);
+  await tagsProvider.initialScan();
+  const tagsView = vscode.window.createTreeView('gherkinFlow.tagsView', {
+    treeDataProvider: tagsProvider,
+    showCollapseAll: true
+  });
+
+  // Step usage heatmap (CodeLens on Java/TS/JS step definition files)
+  const usageIndex = new StepUsageIndex(context);
+  await usageIndex.scan();
+  const usageCodeLens = vscode.languages.registerCodeLensProvider(
+    [{ language: 'java' }, { language: 'typescript' }, { language: 'javascript' }],
+    new StepUsageCodeLensProvider(stepIndex, usageIndex)
+  );
+
   context.subscriptions.push(
+    tagsView,
+    usageCodeLens,
     dryRunCmd,
     watchScenarioCmd,
     inlayHintsProvider,

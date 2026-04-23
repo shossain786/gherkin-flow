@@ -2,7 +2,7 @@
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
   "description": "Debug Gherkin tests 5× faster. Run scenarios, see step-by-step pass/fail, jump to definitions, generate stubs — all without leaving your feature file.",
-  "version": "0.9.15",
+  "version": "0.9.16",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -38,6 +38,15 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "views": {
+      "test": [
+        {
+          "id": "gherkinFlow.tagsView",
+          "name": "Gherkin Tags",
+          "when": "workspaceContainsFeatureFiles"
+        }
+      ]
+    },
     "languages": [
       {
         "id": "gherkin",

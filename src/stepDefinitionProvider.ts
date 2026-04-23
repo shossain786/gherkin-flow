@@ -102,6 +102,14 @@ export class StepDefinitionIndex {
     return [...this._defsByFile.keys()];
   }
 
+  getDefsForFile(filePath: string): Array<{ rawPattern: string; pattern: RegExp; line: number }> {
+    return (this._defsByFile.get(filePath) ?? []).map(d => ({
+      rawPattern: d.rawPattern,
+      pattern: d.pattern,
+      line: d.location.range.start.line
+    }));
+  }
+
   private async _reloadFile(uri: vscode.Uri): Promise<void> {
     this._removeFile(uri);
     try {

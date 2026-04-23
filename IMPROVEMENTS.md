@@ -62,11 +62,11 @@
 
 - [x] **Inlay hints for step parameters** — use the VS Code inlay hints API (1.79+) to show parameter type labels directly on `{string}` / `{int}` values in the feature file.
 
-- [ ] **Step usage heatmap** — track how many feature files reference each step definition. Show a CodeLens on the definition: `Used in 12 scenarios`. Helps find dead or duplicate steps.
+- [x] **Step usage heatmap** — track how many feature files reference each step definition. Show a CodeLens on the definition: `Used in 12 scenarios`. Helps find dead or duplicate steps.
 
 - [x] **Watch mode** — `👁 Watch` CodeLens that re-runs the scenario automatically on save of any related `.feature` or step definition file.
 
-- [ ] **Tags sidebar** — tree view showing all tags across the workspace with pass/fail counts from the last run: `@smoke (12 passed, 1 failed)`.
+- [x] **Tags sidebar** — tree view showing all tags across the workspace with pass/fail counts from the last run: `@smoke (12 passed, 1 failed)`.
 
 - [ ] **Scenario diff view** — on failure, show a side-by-side diff of the last passing run vs the current failure using `vscode.diff`. Persist last-passed report in `workspaceState`.
 
