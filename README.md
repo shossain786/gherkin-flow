@@ -71,6 +71,10 @@ That's not a test workflow. That's a context-switch tax.
 | Undefined steps only fail at runtime | **Underline warning** appears as you type |
 | Write stub boilerplate by hand | **Generate all missing stubs** in one click |
 | No context when reading a step | **Hover** shows the matched pattern + doc comment |
+| Re-run manually after every edit | **Watch mode** reruns on save automatically |
+| Hunt for tag usage across files | **Tags sidebar** shows all tags with pass/fail counts |
+| Can't see parameter types in feature files | **Inlay hints** show `: string`, `: int` inline |
+| Dead step definitions accumulate silently | **Usage heatmap** flags unused steps instantly |
 
 ---
 
@@ -156,6 +160,32 @@ public void iEnterInField(String arg0, String arg1) {
 }
 ```
 
+### 👁 Watch Mode — Auto-Rerun on Save
+Click **👁 Watch** above any scenario to start watching it. Every time you save the feature file that scenario reruns automatically — no manual click needed. Click **👁 Watching** to stop.
+
+### 🏷 Tags Sidebar
+A **Gherkin Tags** panel in the Testing activity bar lists every `@tag` across your workspace. Expand a tag to see all scenarios under it. After a run the tag shows `3 passed · 1 failed` with a green/red icon. Click any scenario to navigate directly to it.
+
+### 🔢 Parameter Type Hints
+Inline grey annotations appear after matched parameter values in your feature file:
+
+```gherkin
+When I enter "admin": string in "username": string
+Given I add 3: int items to the cart
+```
+
+These are editor overlays — not real text — powered by the VS Code Inlay Hints API.
+
+### 📊 Step Usage Heatmap
+Open any Java/TypeScript/JavaScript step definition file. Each `@Given`/`@When`/`@Then` annotation shows a CodeLens with its usage count across all feature files:
+
+```
+$(references) Used in 5 steps
+@Given("I enter {string} in {string}")
+```
+
+`$(warning) Unused step` flags definitions that no feature file references — helping you find dead code before it accumulates.
+
 ### 🔧 Zero-Config Build Detection
 Automatically detects your build tool — no configuration file needed:
 
@@ -203,7 +233,6 @@ Add the JSON reporter to your runner if not already present:
 These are planned or under consideration. Contributions and feature requests welcome via [GitHub Issues](https://github.com/shossain786/gherkin-flow/issues).
 
 - [ ] **Run up to selected step** — execute a scenario and stop at the step you choose
-- [ ] **Tags sidebar panel** — browse and filter all scenarios by tag across the workspace
 - [ ] **Scenario history** — track pass/fail trends per scenario across multiple runs
 - [ ] **Allure report integration** — read Allure JSON alongside the Cucumber JSON report
 - [ ] **Parallel run support** — merge results from parallel Cucumber executions
@@ -211,6 +240,9 @@ These are planned or under consideration. Contributions and feature requests wel
 ---
 
 ## Release Notes
+
+### 0.9.18
+README update — Features section and comparison table updated to document Watch mode, Tags sidebar, Parameter type hints, and Step usage heatmap. Roadmap cleaned up (Tags sidebar marked shipped).
 
 ### 0.9.17
 Fix: tag runs (`▶ @smoke`) now go through the tracked execution path instead of the terminal fallback. Results appear in Test Explorer and the Gherkin Tags sidebar shows pass/fail counts immediately after the run.

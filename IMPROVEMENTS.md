@@ -68,6 +68,4 @@
 
 - [x] **Tags sidebar** — tree view showing all tags across the workspace with pass/fail counts from the last run: `@smoke (12 passed, 1 failed)`.
 
-- [ ] **Scenario diff view** — on failure, show a side-by-side diff of the last passing run vs the current failure using `vscode.diff`. Persist last-passed report in `workspaceState`.
-
 - [x] **Multi-root / monorepo support** — detect build tool per feature file by walking up the directory tree, not just from `workspaceFolders[0]`.
