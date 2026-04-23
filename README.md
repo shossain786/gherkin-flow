@@ -212,6 +212,9 @@ These are planned or under consideration. Contributions and feature requests wel
 
 ## Release Notes
 
+### 0.9.17
+Fix: tag runs (`▶ @smoke`) now go through the tracked execution path instead of the terminal fallback. Results appear in Test Explorer and the Gherkin Tags sidebar shows pass/fail counts immediately after the run.
+
 ### 0.9.16
 - **Tags sidebar** — a *Gherkin Tags* panel appears in the Testing side bar listing every `@tag` in the workspace. Expand a tag to see all scenarios under it; click any scenario to jump to it. Pass/fail icons update automatically after each run: green tick when all scenarios for a tag passed, red circle when any failed.
 - **Step usage heatmap** — a `$(references) Used in N steps` CodeLens appears above every `@Given`/`@When`/`@Then` annotation in your Java/TypeScript/JavaScript step definition files. `$(warning) Unused step` flags definitions that no feature file references.

@@ -165,8 +165,77 @@ export class GherkinTestController {
     await this._launchRun(new vscode.TestRunRequest([featureItem]));
   }
 
-  public runByTag(tag: string, uri: vscode.Uri): void {
-    this._fallback(this.getConfig(uri).buildTagArgs(tag), uri);
+  public async runByTag(tag: string, uri: vscode.Uri): Promise<void> {
+    const config = this.getConfig(uri);
+
+    // Collect all test items that carry this tag so we can mark them in Test Explorer.
+    const tagged: vscode.TestItem[] = [];
+    this.ctrl.items.forEach(featureItem => {
+      featureItem.children.forEach(child => {
+        const tags = this.scenarioTags.get(child.id) ?? [];
+        if (tags.includes(tag)) { tagged.push(child); }
+      });
+    });
+
+    if (tagged.length === 0) {
+      // Feature files not yet loaded — fall back to terminal only.
+      this._fallback(config.buildTagArgs(tag), uri);
+      return;
+    }
+
+    const spawnArgs = config.buildTagArgs(tag);
+    const request  = new vscode.TestRunRequest(tagged);
+    await this._launchCustomRun(request, async (run, token) => {
+      for (const item of tagged) { this._markStarted(run, item); }
+
+      const cwd     = config.projectRoot;
+      const quoted  = (s: string) => (/\s/.test(s) || s.startsWith('-D') || s.startsWith('-P'))
+        ? `"${s.replace(/"/g, '\\"')}"` : s;
+      const cmdStr  = [spawnArgs.file, ...spawnArgs.args].map(quoted).join(' ');
+      run.appendOutput(`\r\n▶ ${cmdStr}\r\n\r\n`);
+
+      await new Promise<void>(resolve => {
+        const proc = spawn(cmdStr, [], { cwd, shell: true, env: { ...process.env } });
+        token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
+        proc.on('error', err => { run.appendOutput(`\r\nFailed to start: ${err.message}\r\n`); resolve(); });
+        proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
+        proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
+        proc.on('close', () => {
+          const reportPath = path.join(cwd, config.reportPath);
+          const report = parseReport(reportPath);
+          if (report.scenarios.size === 0 && !fs.existsSync(reportPath)) {
+            vscode.window.showWarningMessage(
+              `GherkinFlow: Report not found at "${config.reportPath}". Add the JSON reporter plugin to your Cucumber options.`
+            );
+          }
+
+          const failures: vscode.TestItem[] = [];
+          for (const item of tagged) { this._applyResults(run, item, report, failures); }
+
+          // Merge failures and fire events per feature file
+          const byFeature = new Map<string, vscode.TestItem[]>();
+          for (const item of tagged) {
+            const fp = item.uri!.fsPath;
+            if (!byFeature.has(fp)) { byFeature.set(fp, []); }
+            byFeature.get(fp)!.push(item);
+          }
+          for (const [fp, items] of byFeature) {
+            if (!this._failedScenarios.has(fp)) { this._failedScenarios.set(fp, new Map()); }
+            const featureFailures = this._failedScenarios.get(fp)!;
+            for (const s of items) {
+              if (failures.includes(s)) { featureFailures.set(s.id, s); }
+              else                      { featureFailures.delete(s.id); }
+            }
+            // Apply inline decorations using the feature-level item so all
+            // scenario results in the same file are written in one pass.
+            const featureItem = this.featureItems.get(fp);
+            if (featureItem) { this._applyInlineDecorations(featureItem, report); }
+            this._onDidRunTests.fire(vscode.Uri.file(fp));
+          }
+          resolve();
+        });
+      });
+    });
   }
 
   public dryRun(uri: vscode.Uri): void {
@@ -188,6 +257,29 @@ export class GherkinTestController {
     try {
       await this._runHandler(request, cts.token);
     } finally {
+      cts.dispose();
+      this._activeCts = undefined;
+      this._onDidChangeRunning.fire(false);
+    }
+  }
+
+  private async _launchCustomRun(
+    request: vscode.TestRunRequest,
+    runner: (run: vscode.TestRun, token: vscode.CancellationToken) => Promise<void>
+  ): Promise<void> {
+    if (this._activeCts) {
+      this._activeCts.cancel();
+      this._activeCts.dispose();
+      this._activeCts = undefined;
+    }
+    const cts = new vscode.CancellationTokenSource();
+    this._activeCts = cts;
+    this._onDidChangeRunning.fire(true);
+    const run = this.ctrl.createTestRun(request);
+    try {
+      await runner(run, cts.token);
+    } finally {
+      run.end();
       cts.dispose();
       this._activeCts = undefined;
       this._onDidChangeRunning.fire(false);
