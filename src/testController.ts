@@ -3,11 +3,47 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { spawn } from 'child_process';
 import { parseFeatureFile } from './featureParser';
-import { parseReport, ParsedReport, ParsedScenario } from './reportParser';
+import { parseReport, parseReports, ParsedReport, ParsedScenario } from './reportParser';
 import { InlineDecorationProvider, FailedStep } from './inlineDecorationProvider';
 import { detectProject, ProjectConfig, SpawnArgs } from './projectDetector';
 
 const OUTLINE_PREFIX = '[OUTLINE]';
+
+// Finds the primary report file plus any parallel siblings written alongside it.
+// Covers two common parallel-runner conventions:
+//   1. Numbered siblings:  target/cucumber-report-1.json, -2.json, ...
+//   2. Parallel directory: target/cucumber-reports/*.json
+function collectReportFiles(cwd: string, primaryReportPath: string): string[] {
+  const primary = path.join(cwd, primaryReportPath);
+  const dir     = path.dirname(primary);
+  const stem    = path.basename(primary, '.json'); // e.g. "cucumber-report"
+
+  if (!fs.existsSync(dir)) {
+    return fs.existsSync(primary) ? [primary] : [];
+  }
+
+  const found = new Set<string>();
+
+  // Numbered/named siblings in the same directory
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.endsWith('.json')) { continue; }
+    const s = f.slice(0, -5);
+    if (s === stem || s.startsWith(stem + '-') || s.startsWith(stem + '_')) {
+      found.add(path.join(dir, f));
+    }
+  }
+
+  // Parallel reports directory: "cucumber-report" → "cucumber-reports/"
+  const parallelDir = path.join(dir, stem + 's');
+  if (fs.existsSync(parallelDir) && fs.statSync(parallelDir).isDirectory()) {
+    for (const f of fs.readdirSync(parallelDir)) {
+      if (f.endsWith('.json')) { found.add(path.join(parallelDir, f)); }
+    }
+  }
+
+  const all = [...found];
+  return all.length > 0 ? all : (fs.existsSync(primary) ? [primary] : []);
+}
 
 function getWorkspacePath(uri: vscode.Uri): string {
   const ws = vscode.workspace.getWorkspaceFolder(uri) ?? vscode.workspace.workspaceFolders?.[0];
@@ -201,9 +237,9 @@ export class GherkinTestController {
         proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
         proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
         proc.on('close', () => {
-          const reportPath = path.join(cwd, config.reportPath);
-          const report = parseReport(reportPath);
-          if (report.scenarios.size === 0 && !fs.existsSync(reportPath)) {
+          const reportFiles = collectReportFiles(cwd, config.reportPath);
+          const report = parseReports(reportFiles);
+          if (report.scenarios.size === 0 && reportFiles.length === 0) {
             vscode.window.showWarningMessage(
               `GherkinFlow: Report not found at "${config.reportPath}". Add the JSON reporter plugin to your Cucumber options.`
             );
@@ -453,9 +489,9 @@ export class GherkinTestController {
       proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
-        const reportPath = path.join(cwd, config.reportPath);
-        const report = parseReport(reportPath);
-        if (report.scenarios.size === 0 && !fs.existsSync(reportPath)) {
+        const reportFiles = collectReportFiles(cwd, config.reportPath);
+        const report = parseReports(reportFiles);
+        if (report.scenarios.size === 0 && reportFiles.length === 0) {
           vscode.window.showWarningMessage(
             `GherkinFlow: Report not found at "${config.reportPath}". Add the JSON reporter plugin to your Cucumber options.`
           );

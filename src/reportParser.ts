@@ -48,6 +48,16 @@ function deriveStatus(steps: ParsedStep[]): StepStatus {
   return 'skipped';
 }
 
+export function parseReports(reportPaths: string[]): ParsedReport {
+  const merged = new Map<string, ParsedScenario>();
+  for (const p of reportPaths) {
+    for (const [key, scenario] of parseReport(p).scenarios) {
+      merged.set(key, scenario);
+    }
+  }
+  return { scenarios: merged };
+}
+
 export function parseReport(reportPath: string): ParsedReport {
   const map = new Map<string, ParsedScenario>();
 

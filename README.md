@@ -235,11 +235,14 @@ These are planned or under consideration. Contributions and feature requests wel
 - [ ] **Run up to selected step** — execute a scenario and stop at the step you choose
 - [ ] **Scenario history** — track pass/fail trends per scenario across multiple runs
 - [ ] **Allure report integration** — read Allure JSON alongside the Cucumber JSON report
-- [ ] **Parallel run support** — merge results from parallel Cucumber executions
+- [x] **Parallel run support** — merge results from parallel Cucumber executions
 
 ---
 
 ## Release Notes
+
+### 0.9.19
+Parallel run support — after each run, GherkinFlow scans for sibling report files alongside the primary report (e.g. `cucumber-report-1.json`, `cucumber-report-2.json`) and a parallel reports directory (e.g. `target/cucumber-reports/*.json`). All found reports are merged before applying results to Test Explorer, so parallel Cucumber executions show correct pass/fail per scenario without any configuration.
 
 ### 0.9.18
 README update — Features section and comparison table updated to document Watch mode, Tags sidebar, Parameter type hints, and Step usage heatmap. Roadmap cleaned up (Tags sidebar marked shipped).
