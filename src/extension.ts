@@ -12,6 +12,7 @@ import { WatchManager } from './watchProvider';
 import { GherkinInlayHintsProvider } from './inlayHintsProvider';
 import { TagsTreeProvider } from './tagsTreeProvider';
 import { StepUsageIndex, StepUsageCodeLensProvider } from './stepUsageProvider';
+import { ScenarioHistoryStore } from './scenarioHistoryStore';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -68,11 +69,13 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
   constructor(
     private readonly _stepIndex: StepDefinitionIndex,
     private readonly _controller: GherkinTestController,
-    private readonly _watchManager: WatchManager
+    private readonly _watchManager: WatchManager,
+    private readonly _history: ScenarioHistoryStore
   ) {
     _controller.onDidRunTests(() => this._onChange.fire());
     _stepIndex.onDidChange(() => { this._missingCache.clear(); this._onChange.fire(); });
     _watchManager.onDidChange(() => this._onChange.fire());
+    _history.onDidChange(() => this._onChange.fire());
   }
 
   private _getMissingSteps(document: vscode.TextDocument) {
@@ -191,6 +194,14 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
             command: 'gherkinFlow.watchScenario',
             arguments: [scenarioName, document.uri]
           }));
+          const histLabel = this._history.getLabel(document.uri, scenarioName);
+          if (histLabel) {
+            lenses.push(new vscode.CodeLens(range, {
+              title: histLabel,
+              command: 'gherkinFlow.showHistory',
+              arguments: [scenarioName, document.uri]
+            }));
+          }
         }
         // Tag buttons
         const tags: string[] = [];
@@ -214,7 +225,8 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
 
 export async function activate(context: vscode.ExtensionContext) {
   const decorations = new InlineDecorationProvider(context);
-  const controller = new GherkinTestController(context, decorations);
+  const historyStore = new ScenarioHistoryStore(context.workspaceState);
+  const controller = new GherkinTestController(context, decorations, historyStore);
 
   // Build step index first — CodeLens and code actions both need it
   const stepIndex = new StepDefinitionIndex(context);
@@ -330,9 +342,17 @@ export async function activate(context: vscode.ExtensionContext) {
     (scenarioName: string, uri: vscode.Uri) => watchManager.toggle(scenarioName, uri)
   );
 
+  const showHistoryCmd = vscode.commands.registerCommand(
+    'gherkinFlow.showHistory',
+    (scenarioName: string, uri: vscode.Uri) => {
+      const detail = historyStore.getDetail(uri, scenarioName);
+      vscode.window.showInformationMessage(`History: ${scenarioName}`, { modal: true, detail });
+    }
+  );
+
   const codeLens = vscode.languages.registerCodeLensProvider(
     { pattern: '**/*.feature' },
-    new GherkinFlowCodeLensProvider(stepIndex, controller, watchManager)
+    new GherkinFlowCodeLensProvider(stepIndex, controller, watchManager, historyStore)
   );
 
   const defProvider = vscode.languages.registerDefinitionProvider(
@@ -397,6 +417,7 @@ export async function activate(context: vscode.ExtensionContext) {
     usageCodeLens,
     dryRunCmd,
     watchScenarioCmd,
+    showHistoryCmd,
     inlayHintsProvider,
     formattingProvider,
     scenarioDecoration,

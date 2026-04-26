@@ -6,6 +6,7 @@ import { parseFeatureFile } from './featureParser';
 import { parseReport, parseReports, ParsedReport, ParsedScenario } from './reportParser';
 import { InlineDecorationProvider, FailedStep } from './inlineDecorationProvider';
 import { detectProject, ProjectConfig, SpawnArgs } from './projectDetector';
+import { ScenarioHistoryStore } from './scenarioHistoryStore';
 
 const OUTLINE_PREFIX = '[OUTLINE]';
 
@@ -112,9 +113,11 @@ export class GherkinTestController {
   private _activeCts: vscode.CancellationTokenSource | undefined;
   private readonly decorations: InlineDecorationProvider;
   private readonly _configCache = new Map<string, ProjectConfig>();
+  private readonly _history: ScenarioHistoryStore;
 
-  constructor(context: vscode.ExtensionContext, decorations: InlineDecorationProvider) {
+  constructor(context: vscode.ExtensionContext, decorations: InlineDecorationProvider, history: ScenarioHistoryStore) {
     this.decorations = decorations;
+    this._history = history;
     this.ctrl = vscode.tests.createTestController('gherkinFlow', 'Gherkin Flow');
     context.subscriptions.push(this.ctrl);
 
@@ -595,13 +598,19 @@ export class GherkinTestController {
 
     if (parsed.overallStatus === 'passed') {
       run.passed(item, parsed.durationMs);
-      if (item.uri) { this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'passed'); }
+      if (item.uri) {
+        this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'passed');
+        this._history.record(item.uri, item.label, 'passed', parsed.durationMs);
+      }
     } else if (parsed.overallStatus === 'failed') {
       const msg = new vscode.TestMessage(buildFailureMessage(parsed));
       if (item.uri && item.range) { msg.location = new vscode.Location(item.uri, item.range.start); }
       run.failed(item, msg, parsed.durationMs);
       failures.push(item);
-      if (item.uri) { this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'failed'); }
+      if (item.uri) {
+        this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'failed');
+        this._history.record(item.uri, item.label, 'failed', parsed.durationMs);
+      }
     } else {
       run.skipped(item);
     }

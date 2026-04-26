@@ -235,13 +235,16 @@ Add the JSON reporter to your runner if not already present:
 These are planned or under consideration. Contributions and feature requests welcome via [GitHub Issues](https://github.com/shossain786/gherkin-flow/issues).
 
 - [ ] **Run up to selected step** — execute a scenario and stop at the step you choose
-- [ ] **Scenario history** — track pass/fail trends per scenario across multiple runs
+- [x] **Scenario history** — track pass/fail trends per scenario across multiple runs
 - [ ] **Allure report integration** — read Allure JSON alongside the Cucumber JSON report
 - [x] **Parallel run support** — merge results from parallel Cucumber executions
 
 ---
 
 ## Release Notes
+
+### 0.9.21
+Scenario history — after each run, pass/fail and duration are persisted in workspace state (up to 10 runs per scenario). A history CodeLens appears above the scenario once it has been run at least once, showing the last 5 results as `✓ ✓ ✗ ✓ ✓`. Mixed results are flagged as `⚡ Flaky  ✓ ✗ ✓`. Click the lens to see a full timestamped history in a popup. History survives VS Code restarts.
 
 ### 0.9.20
 README and Marketplace description updated to clearly show JavaScript/TypeScript (cucumber-js) support alongside Java. Added `cucumber-js`, `javascript`, `typescript`, and `nodejs` keywords for Marketplace discoverability.
