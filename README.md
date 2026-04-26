@@ -3,6 +3,8 @@
 **Debug Gherkin tests 5× faster — without leaving VS Code.**
 
 > Built for **QA Automation Engineers** and **BDD teams** who write Cucumber scenarios daily and want their editor to actively support their workflow — not just display files.
+>
+> Supports **Java** (Maven / Gradle) and **JavaScript / TypeScript** (cucumber-js) out of the box — zero configuration required.
 
 ---
 
@@ -14,8 +16,8 @@
 
 Your Gherkin test fails. Now what?
 
-1. Scroll through 300 lines of Maven output to find which step broke
-2. Copy the error, manually search across Java files
+1. Scroll through 300 lines of Maven / npm output to find which step broke
+2. Copy the error, manually search across Java / TypeScript / JavaScript files
 3. Open the file, fix the step, switch back to the terminal
 4. Re-run the entire suite and wait again
 5. Repeat — ten times a day
@@ -66,7 +68,7 @@ That's not a test workflow. That's a context-switch tax.
 |---|---|
 | Run tests from the terminal | Click **▶** directly above any scenario |
 | Scroll terminal output to find failures | See pass/fail **per step** in Test Explorer |
-| Search Java files manually for step definitions | **Ctrl+click** any step to jump instantly |
+| Search Java / TS / JS files manually for step definitions | **Ctrl+click** any step to jump instantly |
 | No editor feedback while writing steps | **Autocomplete** from your existing definitions |
 | Undefined steps only fail at runtime | **Underline warning** appears as you type |
 | Write stub boilerplate by hand | **Generate all missing stubs** in one click |
@@ -240,6 +242,9 @@ These are planned or under consideration. Contributions and feature requests wel
 ---
 
 ## Release Notes
+
+### 0.9.20
+README and Marketplace description updated to clearly show JavaScript/TypeScript (cucumber-js) support alongside Java. Added `cucumber-js`, `javascript`, `typescript`, and `nodejs` keywords for Marketplace discoverability.
 
 ### 0.9.19
 Parallel run support — after each run, GherkinFlow scans for sibling report files alongside the primary report (e.g. `cucumber-report-1.json`, `cucumber-report-2.json`) and a parallel reports directory (e.g. `target/cucumber-reports/*.json`). All found reports are merged before applying results to Test Explorer, so parallel Cucumber executions show correct pass/fail per scenario without any configuration.

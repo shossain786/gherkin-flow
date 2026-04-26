@@ -1,8 +1,8 @@
 {
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
-  "description": "Debug Gherkin tests 5× faster. Run scenarios, see step-by-step pass/fail, jump to definitions, generate stubs — all without leaving your feature file.",
-  "version": "0.9.19",
+  "description": "Debug Gherkin tests 5× faster. Supports Java (Maven/Gradle) and JavaScript/TypeScript (cucumber-js). Run scenarios, see step-by-step pass/fail, jump to definitions, generate stubs — all without leaving your feature file.",
+  "version": "0.9.20",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -30,6 +30,10 @@
     "scenario",
     "java",
     "cucumber jvm",
+    "cucumber-js",
+    "javascript",
+    "typescript",
+    "nodejs",
     "step definitions",
     "automation"
   ],
