@@ -71,6 +71,25 @@ function patternToMethodName(pattern: string): string {
   return words.map((w, i) => i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
 }
 
+function patternToSnakeCase(pattern: string): string {
+  const words = pattern
+    .replace(/\{[^}]+\}/g, ' ')
+    .replace(/[^a-zA-Z0-9\s]/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) { return 'step_impl'; }
+  return words.map(w => w.toLowerCase()).join('_');
+}
+
+function extractParamNamesPython(pattern: string): string[] {
+  const params: string[] = [];
+  const re = /\{(\w+)\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(pattern)) !== null) { params.push(m[1]); }
+  return params;
+}
+
 function extractParams(pattern: string, ext: string): string[] {
   const params: string[] = [];
   let n = 0;
@@ -112,6 +131,18 @@ function generateStub(step: MissingStep, ext: string): string {
     if (ext === 'java')     { params.push('String docString'); }
     else if (ext === 'ts')  { params.push('docString: string'); }
     else                    { params.push('docString'); }
+  }
+
+  if (ext === 'py') {
+    const fnName   = patternToSnakeCase(pattern);
+    const pyParams = ['context', ...extractParamNamesPython(pattern)];
+    return [
+      `@${kw.toLowerCase()}(u${quoted})`,
+      `def ${fnName}(${pyParams.join(', ')}):`,
+      `    # TODO: implement`,
+      `    raise NotImplementedError(u'STEP: ${kw} ${step.text}')`,
+      ``,
+    ].join('\n');
   }
 
   if (ext === 'java') {
@@ -179,6 +210,8 @@ function createNewFile(filePath: string, stubs: string[], ext: string): void {
       `}`,
       ``
     ].join('\n');
+  } else if (ext === 'py') {
+    content = [`from behave import given, when, then`, ``, ...stubs].join('\n');
   } else if (ext === 'ts') {
     const needsDataTable = stubs.some(s => s.includes('DataTable'));
     const imports = needsDataTable ? `import { Given, When, Then, DataTable } from '@cucumber/cucumber';` : `import { Given, When, Then } from '@cucumber/cucumber';`;
@@ -223,7 +256,9 @@ export async function executeGenerateSteps(
   let ext: string;
 
   if (!picked.filePath) {
-    const defaultVal = config.type === 'node' ? 'src/steps/steps.ts' : 'src/test/java/steps/StepDefinitions.java';
+    const defaultVal = config.type === 'node' ? 'src/steps/steps.ts'
+      : config.type === 'python-behave' ? 'features/steps/steps.py'
+      : 'src/test/java/steps/StepDefinitions.java';
     const input = await vscode.window.showInputBox({
       prompt: 'New file path (relative to workspace root)',
       value: defaultVal,

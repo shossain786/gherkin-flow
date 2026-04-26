@@ -4,7 +4,7 @@
 
 > Built for **QA Automation Engineers** and **BDD teams** who write Cucumber scenarios daily and want their editor to actively support their workflow — not just display files.
 >
-> Supports **Java** (Maven / Gradle) and **JavaScript / TypeScript** (cucumber-js) out of the box — zero configuration required.
+> Supports **Java** (Maven / Gradle), **JavaScript / TypeScript** (cucumber-js), and **Python** (Behave) out of the box — zero configuration required.
 
 ---
 
@@ -16,8 +16,8 @@
 
 Your Gherkin test fails. Now what?
 
-1. Scroll through 300 lines of Maven / npm output to find which step broke
-2. Copy the error, manually search across Java / TypeScript / JavaScript files
+1. Scroll through 300 lines of Maven / npm / behave output to find which step broke
+2. Copy the error, manually search across Java / TypeScript / JavaScript / Python files
 3. Open the file, fix the step, switch back to the terminal
 4. Re-run the entire suite and wait again
 5. Repeat — ten times a day
@@ -196,6 +196,7 @@ Automatically detects your build tool — no configuration file needed:
 | `./gradlew` / `gradlew.bat` | wrapper in project root |
 | `mvn` / `./mvnw` | `pom.xml` or wrapper in project root |
 | `npx cucumber-js` | `@cucumber/cucumber` in `package.json` |
+| `behave` | `behave.ini`, `features/steps/` directory, or `behave` in `requirements.txt` |
 
 ---
 
@@ -228,20 +229,24 @@ Add the JSON reporter to your runner if not already present:
 - The extension auto-detects and runs via `npx cucumber-js`
 - JSON output written to `reports/cucumber.json` (configured automatically if no `cucumber.js` config file is found)
 
+### Python (Behave)
+- `behave` installed (`pip install behave`)
+- Detected automatically via `behave.ini`, a `features/steps/` directory, or `behave` in `requirements.txt`
+- JSON output written to `reports/behave.json` (appended automatically — no manual configuration needed)
+- Step definitions in `features/steps/*.py` are indexed for jump, autocomplete, and missing step detection
+
 ---
 
 ## Roadmap
 
-These are planned or under consideration. Contributions and feature requests welcome via [GitHub Issues](https://github.com/shossain786/gherkin-flow/issues).
-
-- [ ] **Run up to selected step** — execute a scenario and stop at the step you choose
-- [x] **Scenario history** — track pass/fail trends per scenario across multiple runs
-- [ ] **Allure report integration** — read Allure JSON alongside the Cucumber JSON report
-- [x] **Parallel run support** — merge results from parallel Cucumber executions
+Have a feature request or found a bug? Open an issue on [GitHub](https://github.com/shossain786/gherkin-flow/issues) — contributions welcome.
 
 ---
 
 ## Release Notes
+
+### 0.9.22
+Python / Behave support — GherkinFlow now works with Python BDD projects using Behave. Auto-detected via `behave.ini`, `features/steps/` directory, or `behave` in `requirements.txt`. Run buttons execute `behave` with JSON output automatically appended. Step definitions in `.py` files are indexed for Ctrl+click navigation, autocomplete, missing step detection, and stub generation. Behave JSON duration (seconds) is correctly converted to milliseconds in Test Explorer.
 
 ### 0.9.21
 Scenario history — after each run, pass/fail and duration are persisted in workspace state (up to 10 runs per scenario). A history CodeLens appears above the scenario once it has been run at least once, showing the last 5 results as `✓ ✓ ✗ ✓ ✓`. Mixed results are flagged as `⚡ Flaky  ✓ ✗ ✓`. Click the lens to see a full timestamped history in a popup. History survives VS Code restarts.

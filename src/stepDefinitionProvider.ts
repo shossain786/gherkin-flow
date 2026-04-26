@@ -4,6 +4,8 @@ const STEP_RE = /^\s*(Given|When|Then|And|But|\*)\s+(.*)/i;
 const ANNOTATION_RE_JAVA = /@(?:Given|When|Then|And|But)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
 const ANNOTATION_RE_NODE_STR = /(?:@(?:Given|When|Then|And|But)\s*\(|(?:^|[^.\w])(?:Given|When|Then|And|But)\s*\()\s*(['"`])((?:[^'"`\\]|\\.)*)\2/gm;
 const ANNOTATION_RE_NODE_RE  = /(?:@(?:Given|When|Then|And|But)\s*\(|(?:^|[^.\w])(?:Given|When|Then|And|But)\s*\()\s*\/([^/]+)\//gm;
+// Matches: @given('pattern') / @when(u"pattern") / @then(r'regex')
+const ANNOTATION_RE_PYTHON = /@(?:given|when|then|step)\s*\(\s*[uUrR]?(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/gim;
 
 interface StepDefinition {
   pattern: RegExp;
@@ -67,7 +69,7 @@ export class StepDefinitionIndex {
   readonly onDidChange = this._onDidChange.event;
 
   constructor(context: vscode.ExtensionContext) {
-    this._watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js}');
+    this._watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js,py}');
     this._watcher.onDidCreate(uri => this._reloadFile(uri));
     this._watcher.onDidChange(uri => this._reloadFile(uri));
     this._watcher.onDidDelete(uri => this._removeFile(uri));
@@ -75,7 +77,10 @@ export class StepDefinitionIndex {
   }
 
   async scan(): Promise<void> {
-    const uris = await vscode.workspace.findFiles('**/*.{java,ts,js}', '{**/node_modules/**,**/target/**,**/dist/**}');
+    const uris = await vscode.workspace.findFiles(
+      '**/*.{java,ts,js,py}',
+      '{**/node_modules/**,**/target/**,**/dist/**,**/venv/**,**/.venv/**,**/env/**,**/__pycache__/**}'
+    );
     await Promise.all(uris.map(uri => this._reloadFile(uri)));
   }
 
@@ -125,7 +130,8 @@ export class StepDefinitionIndex {
     const defs: StepDefinition[] = [];
     const lines = text.split('\n');
     const ext = uri.fsPath.split('.').pop()?.toLowerCase() ?? '';
-    const isNode = ext === 'ts' || ext === 'js';
+    const isNode   = ext === 'ts' || ext === 'js';
+    const isPython = ext === 'py';
 
     const push = (rawPattern: string, matchIndex: number, isRegex = false) => {
       const line = text.slice(0, matchIndex).split('\n').length - 1;
@@ -136,15 +142,21 @@ export class StepDefinitionIndex {
       } catch { /* invalid regex — skip */ }
     };
 
-    if (isNode) {
+    let m: RegExpExecArray | null;
+    if (isPython) {
+      ANNOTATION_RE_PYTHON.lastIndex = 0;
+      while ((m = ANNOTATION_RE_PYTHON.exec(text)) !== null) {
+        const pattern = m[1] ?? m[2]; // double-quoted or single-quoted
+        // Behave treats patterns starting with ^ as raw regex; others are text/Behave expressions
+        push(pattern, m.index, pattern.startsWith('^'));
+      }
+    } else if (isNode) {
       ANNOTATION_RE_NODE_STR.lastIndex = 0;
-      let m: RegExpExecArray | null;
       while ((m = ANNOTATION_RE_NODE_STR.exec(text)) !== null) { push(m[2], m.index); }
       ANNOTATION_RE_NODE_RE.lastIndex = 0;
       while ((m = ANNOTATION_RE_NODE_RE.exec(text)) !== null)  { push(m[1], m.index, true); }
     } else {
       ANNOTATION_RE_JAVA.lastIndex = 0;
-      let m: RegExpExecArray | null;
       while ((m = ANNOTATION_RE_JAVA.exec(text)) !== null) { push(m[1], m.index); }
     }
 

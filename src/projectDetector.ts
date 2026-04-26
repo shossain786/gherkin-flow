@@ -3,7 +3,7 @@ import * as path from 'path';
 
 const IS_WIN = process.platform === 'win32';
 
-export type ProjectType = 'java-gradle' | 'java-maven' | 'node';
+export type ProjectType = 'java-gradle' | 'java-maven' | 'node' | 'python-behave';
 
 export interface SpawnArgs {
   file: string;
@@ -35,6 +35,43 @@ function hasNodeCucumber(cwd: string): boolean {
 
 function hasNodeConfig(cwd: string): boolean {
   return ['cucumber.js', '.cucumber.js', 'cucumber.mjs', 'cucumber.cjs'].some(f => exists(cwd, f));
+}
+
+function hasBehaveProject(cwd: string): boolean {
+  if (exists(cwd, 'behave.ini')) { return true; }
+  if (fs.existsSync(path.join(cwd, 'features', 'steps'))) { return true; }
+  for (const f of ['requirements.txt', 'requirements-test.txt', 'Pipfile']) {
+    try {
+      if (fs.readFileSync(path.join(cwd, f), 'utf8').toLowerCase().includes('behave')) { return true; }
+    } catch {}
+  }
+  return false;
+}
+
+function behaveConfig(projectRoot: string): ProjectConfig {
+  const fmtArgs = ['--format', 'json', '-o', 'reports/behave.json'];
+  return {
+    type: 'python-behave',
+    projectRoot,
+    buildScenarioArgs: (name, feat) => ({
+      file: 'behave',
+      args: [...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs],
+    }),
+    buildFeatureArgs: (rel) => ({
+      file: 'behave',
+      args: [rel, ...fmtArgs],
+    }),
+    buildTagArgs: (tag) => ({
+      file: 'behave',
+      args: ['--tags', safeFilter(tag), ...fmtArgs],
+    }),
+    buildDryRunArgs: (rel) => ({
+      file: 'behave',
+      args: [rel, '--dry-run'],
+    }),
+    reportPath:   'reports/behave.json',
+    stepFileGlob: '**/*.py',
+  };
 }
 
 // Replace " with . so Cucumber treats it as a regex wildcard.
@@ -123,6 +160,7 @@ export function detectProject(startDir: string): ProjectConfig {
   let dir = startDir;
   while (true) {
     if (exists(dir, 'package.json') && hasNodeCucumber(dir)) { return nodeConfig(dir); }
+    if (hasBehaveProject(dir))                               { return behaveConfig(dir); }
     if (IS_WIN  && exists(dir, 'gradlew.bat')) { return gradleConfig(dir, 'gradlew.bat'); }
     if (!IS_WIN && exists(dir, 'gradlew'))     { return gradleConfig(dir, './gradlew');   }
     if (exists(dir, 'build.gradle') || exists(dir, 'build.gradle.kts')) {

@@ -37,6 +37,7 @@ interface RawElement {
 
 interface RawFeature {
   name: string;
+  filename?: string;  // present in Behave JSON (absent in Cucumber JSON)
   elements?: RawElement[];
 }
 
@@ -65,16 +66,23 @@ export function parseReport(reportPath: string): ParsedReport {
     const content = fs.readFileSync(reportPath, 'utf-8');
     const features = JSON.parse(content) as RawFeature[];
 
-    const toStep = (s: RawStep): ParsedStep => ({
-      keyword: String(s.keyword ?? '').trim(),
-      name: String(s.name ?? ''),
-      status: (s.result?.status ?? 'undefined') as StepStatus,
-      durationMs: Math.round((s.result?.duration ?? 0) / 1_000_000),
-      errorMessage: s.result?.error_message ? String(s.result.error_message) : undefined,
-      output: s.output && s.output.length > 0 ? s.output : undefined
-    });
-
     for (const feature of features) {
+      // Behave reports duration in seconds (float); Cucumber JVM uses nanoseconds (integer).
+      // Detect by presence of the "filename" field which only Behave includes.
+      const isBehave = typeof feature.filename === 'string';
+      const toDurationMs = isBehave
+        ? (d: number) => Math.round(d * 1000)
+        : (d: number) => Math.round(d / 1_000_000);
+
+      const toStep = (s: RawStep): ParsedStep => ({
+        keyword: String(s.keyword ?? '').trim(),
+        name:    String(s.name ?? ''),
+        status:  (s.result?.status ?? 'undefined') as StepStatus,
+        durationMs: toDurationMs(s.result?.duration ?? 0),
+        errorMessage: s.result?.error_message ? String(s.result.error_message) : undefined,
+        output: s.output && s.output.length > 0 ? s.output : undefined
+      });
+
       let pendingBackgroundSteps: ParsedStep[] = [];
 
       for (const el of feature.elements ?? []) {
