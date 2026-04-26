@@ -245,6 +245,9 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.23
+Real-time step progress — Test Explorer now updates step-by-step as tests run instead of waiting for the full suite to finish. Steps turn green (✓) or red (✗) the moment they complete. Supports Cucumber JVM (pretty formatter), Behave, and cucumber-js. Final results from the JSON report are applied after the run and remain the authoritative source.
+
 ### 0.9.22
 Python / Behave support — GherkinFlow now works with Python BDD projects using Behave. Auto-detected via `behave.ini`, `features/steps/` directory, or `behave` in `requirements.txt`. Run buttons execute `behave` with JSON output automatically appended. Step definitions in `.py` files are indexed for Ctrl+click navigation, autocomplete, missing step detection, and stub generation. Behave JSON duration (seconds) is correctly converted to milliseconds in Test Explorer.
 

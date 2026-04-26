@@ -7,6 +7,7 @@ import { parseReport, parseReports, ParsedReport, ParsedScenario } from './repor
 import { InlineDecorationProvider, FailedStep } from './inlineDecorationProvider';
 import { detectProject, ProjectConfig, SpawnArgs } from './projectDetector';
 import { ScenarioHistoryStore } from './scenarioHistoryStore';
+import { LiveOutputParser, LiveStepResult } from './liveOutputParser';
 
 const OUTLINE_PREFIX = '[OUTLINE]';
 
@@ -470,6 +471,32 @@ export class GherkinTestController {
     item.children.forEach(child => this._markStarted(run, child));
   }
 
+  // Build scenario-name → {item, steps[]} map so live stdout updates can be applied
+  private _buildLiveMap(item: vscode.TestItem): Map<string, { item: vscode.TestItem; steps: vscode.TestItem[] }> {
+    const map = new Map<string, { item: vscode.TestItem; steps: vscode.TestItem[] }>();
+    for (const s of this._collectScenarioItems(item)) {
+      const steps: vscode.TestItem[] = [];
+      s.children.forEach(c => steps.push(c));
+      map.set(s.label, { item: s, steps });
+    }
+    return map;
+  }
+
+  private _applyLiveResult(
+    run: vscode.TestRun,
+    liveMap: Map<string, { item: vscode.TestItem; steps: vscode.TestItem[] }>,
+    result: LiveStepResult
+  ): void {
+    const entry = liveMap.get(result.scenarioName);
+    if (!entry) { return; }
+    run.started(entry.item);
+    const stepItem = entry.steps.find(s => s.label === result.stepLabel);
+    if (!stepItem) { return; }
+    if (result.status === 'passed')  { run.passed(stepItem, result.durationMs); }
+    else if (result.status === 'failed') { run.failed(stepItem, new vscode.TestMessage('Step failed — full error in output'), result.durationMs); }
+    else                             { run.skipped(stepItem); }
+  }
+
   private async _execute(
     run: vscode.TestRun,
     item: vscode.TestItem,
@@ -483,13 +510,19 @@ export class GherkinTestController {
       const quoted = (s: string) => /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
       const cmdStr = [spawnArgs.file, ...spawnArgs.args].map(quoted).join(' ');
       run.appendOutput(`\r\n▶ ${cmdStr}\r\n\r\n`);
-      const proc = spawn(cmdStr, [], { cwd, shell: true, env: { ...process.env } });
+      const proc    = spawn(cmdStr, [], { cwd, shell: true, env: { ...process.env } });
+      const liveMap = this._buildLiveMap(item);
+      const parser  = new LiveOutputParser();
       token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
       proc.on('error', (err) => {
         run.appendOutput(`\r\nFailed to start process: ${err.message}\r\n`);
         resolve();
       });
-      proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
+      proc.stdout?.on('data', (c: Buffer) => {
+        const text = c.toString();
+        run.appendOutput(text.replace(/\r?\n/g, '\r\n'));
+        for (const r of parser.processChunk(text)) { this._applyLiveResult(run, liveMap, r); }
+      });
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
         const reportFiles = collectReportFiles(cwd, config.reportPath);
