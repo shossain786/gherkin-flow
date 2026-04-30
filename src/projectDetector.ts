@@ -92,27 +92,24 @@ function nodeConfig(projectRoot: string): ProjectConfig {
   // If the user's config already declares a json: formatter, respect their path and don't
   // add a duplicate. Otherwise always append our own so the report is guaranteed to exist.
   const configuredJsonPath = extractCucumberJsonPath(projectRoot);
-  const fmtArgs  = configuredJsonPath ? [] : ['--format', 'json:reports/cucumber.json'];
+  const fmtArgs   = configuredJsonPath ? [] : ['--format', 'json:reports/cucumber.json'];
   const reportPath = configuredJsonPath ?? path.join('reports', 'cucumber.json');
+
+  // Use the local cucumber-js binary (via node) when available — avoids npx falling back
+  // to the security-placeholder 'cucumber-js' npm package when node_modules is absent.
+  const localBin = path.join(projectRoot, 'node_modules', '@cucumber', 'cucumber', 'bin', 'cucumber-js');
+  const invoke = (extra: string[]): SpawnArgs =>
+    fs.existsSync(localBin)
+      ? { file: 'node', args: [localBin, ...extra] }
+      : { file: 'npx', args: ['cucumber-js', ...extra] };
+
   return {
     type: 'node',
     projectRoot,
-    buildScenarioArgs: (name, feat) => ({
-      file: 'npx',
-      args: ['cucumber-js', ...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs],
-    }),
-    buildFeatureArgs: (rel) => ({
-      file: 'npx',
-      args: ['cucumber-js', rel, ...fmtArgs],
-    }),
-    buildTagArgs: (tag) => ({
-      file: 'npx',
-      args: ['cucumber-js', '--tags', tag, ...fmtArgs],
-    }),
-    buildDryRunArgs: (rel) => ({
-      file: 'npx',
-      args: ['cucumber-js', rel, '--dry-run'],
-    }),
+    buildScenarioArgs: (name, feat) => invoke([...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs]),
+    buildFeatureArgs:  (rel)         => invoke([rel, ...fmtArgs]),
+    buildTagArgs:      (tag)         => invoke(['--tags', tag, ...fmtArgs]),
+    buildDryRunArgs:   (rel)         => invoke([rel, '--dry-run']),
     reportPath,
     stepFileGlob: '**/*.{ts,js}',
   };

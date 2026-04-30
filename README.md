@@ -245,6 +245,9 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.25
+Fix: Node.js Cucumber projects now invoke `node node_modules/@cucumber/cucumber/bin/cucumber-js` directly when the local binary is installed, instead of relying on `npx cucumber-js`. Previously, when `node_modules` was absent or `cucumber-js` was not locally installed, `npx` would fall back to downloading the npm package named `cucumber-js` — which is a security placeholder, not the actual runner — producing a confusing error. The local binary is now preferred; `npx` is only used as a last resort.
+
 ### 0.9.24
 Fix: Playwright + cucumber-js projects now work correctly. Previously, the presence of a `cucumber.js` config file caused GherkinFlow to assume JSON reporting was already configured and skip adding the `--format json:` arg. Playwright projects always have `cucumber.js` for TypeScript/fixture setup but rarely include JSON output — so the report file was never written and Test Explorer stayed empty. GherkinFlow now reads the config to check whether a `json:` formatter is actually declared. If not, it appends one automatically. If it is, the declared path is used as the report location.
 
