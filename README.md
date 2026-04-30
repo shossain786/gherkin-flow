@@ -245,6 +245,9 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.24
+Fix: Playwright + cucumber-js projects now work correctly. Previously, the presence of a `cucumber.js` config file caused GherkinFlow to assume JSON reporting was already configured and skip adding the `--format json:` arg. Playwright projects always have `cucumber.js` for TypeScript/fixture setup but rarely include JSON output — so the report file was never written and Test Explorer stayed empty. GherkinFlow now reads the config to check whether a `json:` formatter is actually declared. If not, it appends one automatically. If it is, the declared path is used as the report location.
+
 ### 0.9.23
 Real-time step progress — Test Explorer now updates step-by-step as tests run instead of waiting for the full suite to finish. Steps turn green (✓) or red (✗) the moment they complete. Supports Cucumber JVM (pretty formatter), Behave, and cucumber-js. Final results from the JSON report are applied after the run and remain the authoritative source.
 

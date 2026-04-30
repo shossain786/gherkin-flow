@@ -33,8 +33,18 @@ function hasNodeCucumber(cwd: string): boolean {
   } catch { return false; }
 }
 
-function hasNodeConfig(cwd: string): boolean {
-  return ['cucumber.js', '.cucumber.js', 'cucumber.mjs', 'cucumber.cjs'].some(f => exists(cwd, f));
+// Returns the json: reporter path already declared in the user's cucumber config,
+// or undefined when no JSON reporter is configured.
+// Supports cucumber.js / .cucumber.js / cucumber.mjs / cucumber.cjs / cucumber.yaml.
+function extractCucumberJsonPath(cwd: string): string | undefined {
+  for (const f of ['cucumber.js', '.cucumber.js', 'cucumber.mjs', 'cucumber.cjs', 'cucumber.yaml', '.cucumber.yaml']) {
+    try {
+      const content = fs.readFileSync(path.join(cwd, f), 'utf8');
+      const m = content.match(/['"`]json:([^'"`\s,)]+)/);
+      if (m) { return m[1]; }
+    } catch {}
+  }
+  return undefined;
 }
 
 function hasBehaveProject(cwd: string): boolean {
@@ -79,7 +89,11 @@ function behaveConfig(projectRoot: string): ProjectConfig {
 const safeFilter = (s: string) => s.replace(/"/g, '.');
 
 function nodeConfig(projectRoot: string): ProjectConfig {
-  const fmtArgs = hasNodeConfig(projectRoot) ? [] : ['--format', 'json:reports/cucumber.json'];
+  // If the user's config already declares a json: formatter, respect their path and don't
+  // add a duplicate. Otherwise always append our own so the report is guaranteed to exist.
+  const configuredJsonPath = extractCucumberJsonPath(projectRoot);
+  const fmtArgs  = configuredJsonPath ? [] : ['--format', 'json:reports/cucumber.json'];
+  const reportPath = configuredJsonPath ?? path.join('reports', 'cucumber.json');
   return {
     type: 'node',
     projectRoot,
@@ -99,7 +113,7 @@ function nodeConfig(projectRoot: string): ProjectConfig {
       file: 'npx',
       args: ['cucumber-js', rel, '--dry-run'],
     }),
-    reportPath:  path.join('reports', 'cucumber.json'),
+    reportPath,
     stepFileGlob: '**/*.{ts,js}',
   };
 }
