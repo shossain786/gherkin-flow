@@ -95,13 +95,20 @@ function nodeConfig(projectRoot: string): ProjectConfig {
   const fmtArgs   = configuredJsonPath ? [] : ['--format', 'json:reports/cucumber.json'];
   const reportPath = configuredJsonPath ?? path.join('reports', 'cucumber.json');
 
-  // Use the local cucumber-js binary (via node) when available — avoids npx falling back
-  // to the security-placeholder 'cucumber-js' npm package when node_modules is absent.
+  // Use the local cucumber-js binary (via node) when available.
+  // Never fall back to `npx cucumber-js` — the npm package named 'cucumber-js' is a
+  // security placeholder and will show a confusing Aikido error instead of running tests.
   const localBin = path.join(projectRoot, 'node_modules', '@cucumber', 'cucumber', 'bin', 'cucumber-js');
+  const notInstalledMsg = [
+    `process.stderr.write(`,
+    `"GherkinFlow: @cucumber/cucumber is not installed.\\n" +`,
+    `"Run \\"npm install\\" in: ${projectRoot.replace(/\\/g, '/')}\\n"`,
+    `); process.exit(1);`
+  ].join(' ');
   const invoke = (extra: string[]): SpawnArgs =>
     fs.existsSync(localBin)
       ? { file: 'node', args: [localBin, ...extra] }
-      : { file: 'npx', args: ['cucumber-js', ...extra] };
+      : { file: 'node', args: ['-e', notInstalledMsg] };
 
   return {
     type: 'node',
