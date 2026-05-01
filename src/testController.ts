@@ -235,7 +235,8 @@ export class GherkinTestController {
       run.appendOutput(`\r\n▶ ${cmdStr}\r\n\r\n`);
 
       await new Promise<void>(resolve => {
-        const proc = spawn(cmdStr, [], { cwd, shell: true, env: { ...process.env } });
+        const tagEnv = { ...process.env }; delete tagEnv.NODE_PATH;
+        const proc = spawn(cmdStr, [], { cwd, shell: true, env: tagEnv });
         token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
         proc.on('error', err => { run.appendOutput(`\r\nFailed to start: ${err.message}\r\n`); resolve(); });
         proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
@@ -510,7 +511,13 @@ export class GherkinTestController {
       const quoted = (s: string) => /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
       const cmdStr = [spawnArgs.file, ...spawnArgs.args].map(quoted).join(' ');
       run.appendOutput(`\r\n▶ ${cmdStr}\r\n\r\n`);
-      const proc    = spawn(cmdStr, [], { cwd, shell: true, env: { ...process.env } });
+      // Strip NODE_PATH so the child process uses standard walk-up module resolution.
+      // If NODE_PATH points to a directory that has @cucumber/cucumber (e.g. a global
+      // npm install), Node.js would load a second instance of the package, causing the
+      // "instance not running (PENDING)" error when support files call setDefaultTimeout.
+      const spawnEnv = { ...process.env };
+      delete spawnEnv.NODE_PATH;
+      const proc    = spawn(cmdStr, [], { cwd, shell: true, env: spawnEnv });
       const liveMap = this._buildLiveMap(item);
       const parser  = new LiveOutputParser();
       token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
