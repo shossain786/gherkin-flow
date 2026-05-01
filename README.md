@@ -245,6 +245,12 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.27
+Fix: scenario and feature runs now pass `--parallel 0` to override any `parallel: N` set in `cucumber.js`. With parallel workers enabled, support files (e.g. `hooks.ts`, `world.ts`) were loaded inside worker processes before `startWrappingMethods()` initialised the Cucumber instance, causing module-level calls like `setDefaultTimeout()` and `setWorldConstructor()` to throw `"instance not running (PENDING)"`. Serial mode (`--parallel 0`) guarantees the correct initialisation order. Tag runs keep the project's parallel setting.
+
+### 0.9.26
+Fix: never fall back to `npx cucumber-js` — if `@cucumber/cucumber` is not installed locally, print a clear error telling the user to run `npm install` instead of downloading the security-placeholder package from npm.
+
 ### 0.9.25
 Fix: Node.js Cucumber projects now invoke `node node_modules/@cucumber/cucumber/bin/cucumber-js` directly when the local binary is installed, instead of relying on `npx cucumber-js`. Previously, when `node_modules` was absent or `cucumber-js` was not locally installed, `npx` would fall back to downloading the npm package named `cucumber-js` — which is a security placeholder, not the actual runner — producing a confusing error. The local binary is now preferred; `npx` is only used as a last resort.
 
