@@ -95,20 +95,23 @@ function nodeConfig(projectRoot: string): ProjectConfig {
   const fmtArgs   = configuredJsonPath ? [] : ['--format', 'json:reports/cucumber.json'];
   const reportPath = configuredJsonPath ?? path.join('reports', 'cucumber.json');
 
-  // Use the local cucumber-js binary (via node) when available.
-  // Never fall back to `npx cucumber-js` — the npm package named 'cucumber-js' is a
-  // security placeholder and will show a confusing Aikido error instead of running tests.
-  const localBin = path.join(projectRoot, 'node_modules', '@cucumber', 'cucumber', 'bin', 'cucumber-js');
+  // Prefer the npm-generated wrapper in node_modules/.bin — it uses %~dp0 on Windows
+  // and a shell shebang on Unix, which avoids backslash path issues when the path is
+  // passed through cmd.exe with shell:true.  Falls back to the raw JS file via node,
+  // and finally to a clear "npm install" error message.
+  const binCmd  = path.join(projectRoot, 'node_modules', '.bin', IS_WIN ? 'cucumber-js.cmd' : 'cucumber-js');
+  const localJs = path.join(projectRoot, 'node_modules', '@cucumber', 'cucumber', 'bin', 'cucumber-js');
   const notInstalledMsg = [
     `process.stderr.write(`,
     `"GherkinFlow: @cucumber/cucumber is not installed.\\n" +`,
     `"Run \\"npm install\\" in: ${projectRoot.replace(/\\/g, '/')}\\n"`,
     `); process.exit(1);`
   ].join(' ');
-  const invoke = (extra: string[]): SpawnArgs =>
-    fs.existsSync(localBin)
-      ? { file: 'node', args: [localBin, ...extra] }
-      : { file: 'node', args: ['-e', notInstalledMsg] };
+  const invoke = (extra: string[]): SpawnArgs => {
+    if (fs.existsSync(binCmd))  { return { file: binCmd,  args: extra }; }
+    if (fs.existsSync(localJs)) { return { file: 'node',  args: [localJs, ...extra] }; }
+    return { file: 'node', args: ['-e', notInstalledMsg] };
+  };
 
   return {
     type: 'node',
