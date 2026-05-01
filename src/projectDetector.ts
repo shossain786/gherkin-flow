@@ -113,10 +113,16 @@ function nodeConfig(projectRoot: string): ProjectConfig {
   return {
     type: 'node',
     projectRoot,
-    buildScenarioArgs: (name, feat) => invoke([...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs]),
-    buildFeatureArgs:  (rel)         => invoke([rel, ...fmtArgs]),
+    // --parallel 0 forces serial execution in the main process for scenario/feature runs.
+    // With parallel workers (parallel: N in cucumber.js config), support files can be
+    // loaded inside worker processes before startWrappingMethods() is called, causing
+    // the "instance not running (PENDING)" error for module-level Cucumber calls like
+    // setDefaultTimeout() and setWorldConstructor(). Serial mode avoids this entirely.
+    // Tag runs keep the user's parallel setting since they run many scenarios.
+    buildScenarioArgs: (name, feat) => invoke([...(feat ? [feat] : []), '--name', safeFilter(name), '--parallel', '0', ...fmtArgs]),
+    buildFeatureArgs:  (rel)         => invoke([rel, '--parallel', '0', ...fmtArgs]),
     buildTagArgs:      (tag)         => invoke(['--tags', tag, ...fmtArgs]),
-    buildDryRunArgs:   (rel)         => invoke([rel, '--dry-run']),
+    buildDryRunArgs:   (rel)         => invoke([rel, '--dry-run', '--parallel', '0']),
     reportPath,
     stepFileGlob: '**/*.{ts,js}',
   };
