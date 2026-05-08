@@ -13,7 +13,10 @@ export interface SpawnArgs {
 export interface ProjectConfig {
   type: ProjectType;
   projectRoot: string;
-  buildScenarioArgs(name: string, featureRelPath?: string): SpawnArgs;
+  // line: 1-based line number of the scenario in the feature file.
+  // When provided, node/behave runners use "file:line" instead of "--name" to avoid
+  // loading support code in the parallel coordinator before reset() is called.
+  buildScenarioArgs(name: string, featureRelPath?: string, line?: number): SpawnArgs;
   buildFeatureArgs(relativePath: string): SpawnArgs;
   buildTagArgs(tag: string): SpawnArgs;
   buildDryRunArgs(featureRelPath: string): SpawnArgs;
@@ -63,9 +66,13 @@ function behaveConfig(projectRoot: string): ProjectConfig {
   return {
     type: 'python-behave',
     projectRoot,
-    buildScenarioArgs: (name, feat) => ({
+    buildScenarioArgs: (name, feat, line) => ({
       file: 'behave',
-      args: [...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs],
+      // Behave supports "path/to/file.feature:15" line-number addressing.
+      // Use it when available to skip name-based filtering entirely.
+      args: feat && line !== undefined
+        ? [`${feat}:${line}`, ...fmtArgs]
+        : [...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs],
     }),
     buildFeatureArgs: (rel) => ({
       file: 'behave',
@@ -116,16 +123,15 @@ function nodeConfig(projectRoot: string): ProjectConfig {
   return {
     type: 'node',
     projectRoot,
-    // --parallel 0 forces serial execution in the main process for scenario/feature runs.
-    // With parallel workers (parallel: N in cucumber.js config), support files can be
-    // loaded inside worker processes before startWrappingMethods() is called, causing
-    // the "instance not running (PENDING)" error for module-level Cucumber calls like
-    // setDefaultTimeout() and setWorldConstructor(). Serial mode avoids this entirely.
-    // Tag runs keep the user's parallel setting since they run many scenarios.
-    buildScenarioArgs: (name, feat) => invoke([...(feat ? [feat] : []), '--name', safeFilter(name), '--parallel', '0', ...fmtArgs]),
-    buildFeatureArgs:  (rel)         => invoke([rel, '--parallel', '0', ...fmtArgs]),
+    // Use "file:line" addressing when possible — avoids the parallel coordinator
+    // loading support files before reset() is called (which causes PENDING errors
+    // when the project has "parallel: N" in cucumber.js). Falls back to --name.
+    buildScenarioArgs: (name, feat, line) => feat && line !== undefined
+      ? invoke([`${feat}:${line}`, ...fmtArgs])
+      : invoke([...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs]),
+    buildFeatureArgs:  (rel)         => invoke([rel, ...fmtArgs]),
     buildTagArgs:      (tag)         => invoke(['--tags', tag, ...fmtArgs]),
-    buildDryRunArgs:   (rel)         => invoke([rel, '--dry-run', '--parallel', '0']),
+    buildDryRunArgs:   (rel)         => invoke([rel, '--dry-run']),
     reportPath,
     stepFileGlob: '**/*.{ts,js}',
   };

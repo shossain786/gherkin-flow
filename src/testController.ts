@@ -235,7 +235,8 @@ export class GherkinTestController {
       run.appendOutput(`\r\n▶ ${cmdStr}\r\n\r\n`);
 
       await new Promise<void>(resolve => {
-        const tagEnv = { ...process.env }; delete tagEnv.NODE_PATH; delete tagEnv.NODE_OPTIONS;
+        const tagEnv = { ...process.env };
+        delete tagEnv.NODE_PATH; delete tagEnv.NODE_OPTIONS; delete tagEnv.ELECTRON_RUN_AS_NODE;
         const proc = spawn(cmdStr, [], { cwd, shell: true, env: tagEnv });
         token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
         proc.on('error', err => { run.appendOutput(`\r\nFailed to start: ${err.message}\r\n`); resolve(); });
@@ -447,18 +448,20 @@ export class GherkinTestController {
 
       const featRel = path.relative(cwd, item.uri!.fsPath).replace(/\\/g, '/');
       let spawnArgs: SpawnArgs;
+      const lineNo = item.range ? item.range.start.line + 1 : undefined;
       switch (level) {
         case 'feature':
           spawnArgs = config.buildFeatureArgs(featRel);
           break;
         case 'outline':
+          // Run all examples via name — line-number addressing targets a single row.
           spawnArgs = config.buildScenarioArgs(outlineFilter(item.label), featRel);
           break;
         case 'example':
-          spawnArgs = config.buildScenarioArgs(item.label, featRel);
+          spawnArgs = config.buildScenarioArgs(item.label, featRel, lineNo);
           break;
         default:
-          spawnArgs = config.buildScenarioArgs(item.label, featRel);
+          spawnArgs = config.buildScenarioArgs(item.label, featRel, lineNo);
       }
 
       await this._execute(run, item, config, spawnArgs, token);
@@ -511,14 +514,10 @@ export class GherkinTestController {
       const quoted = (s: string) => /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
       const cmdStr = [spawnArgs.file, ...spawnArgs.args].map(quoted).join(' ');
       run.appendOutput(`\r\n▶ ${cmdStr}\r\n\r\n`);
-      // Strip VS Code-injected Node.js env vars that can cause module resolution conflicts.
-      // NODE_PATH: a global @cucumber/cucumber would be found before the local one.
-      // NODE_OPTIONS: VS Code's extension host sets this to --require its own Electron
-      //   bootstrap modules; the child process inherits it and those modules can
-      //   interfere with Cucumber's singleton supportCodeLibraryBuilder.
       const spawnEnv = { ...process.env };
       delete spawnEnv.NODE_PATH;
       delete spawnEnv.NODE_OPTIONS;
+      delete spawnEnv.ELECTRON_RUN_AS_NODE;
       const proc    = spawn(cmdStr, [], { cwd, shell: true, env: spawnEnv });
       const liveMap = this._buildLiveMap(item);
       const parser  = new LiveOutputParser();

@@ -245,6 +245,12 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.29
+Fix: scenario runs on cucumber-js projects with `parallel: N` configured in `cucumber.js` no longer throw `"instance not running (PENDING)"`. The root cause: `--name "scenario"` filter forces the parallel coordinator to scan support files to match scenario names, but does so before `reset()` initialises the Cucumber instance. GherkinFlow now uses the `features/file.feature:LINE` line-number addressing format instead of `--name`, which lets cucumber-js filter scenarios directly from the Gherkin AST without touching support code. Falls back to `--name` only when no line number is available (rare fallback path).
+
+### 0.9.28
+Fix: removed the `--parallel 0` flag that was silently breaking projects using playwright-bdd and similar cucumber-js setups. In certain cucumber-js v11 configurations, passing `--parallel 0` triggers an internal coordinator code path that imports support modules before the Cucumber instance is initialised (status: PENDING), causing `setDefaultTimeout()` and `setWorldConstructor()` to throw even though the same command works fine from a terminal. Also strip `ELECTRON_RUN_AS_NODE` from the child process environment to prevent VS Code's Electron runtime from leaking into spawned Node processes.
+
 ### 0.9.27
 Fix: scenario and feature runs now pass `--parallel 0` to override any `parallel: N` set in `cucumber.js`. With parallel workers enabled, support files (e.g. `hooks.ts`, `world.ts`) were loaded inside worker processes before `startWrappingMethods()` initialised the Cucumber instance, causing module-level calls like `setDefaultTimeout()` and `setWorldConstructor()` to throw `"instance not running (PENDING)"`. Serial mode (`--parallel 0`) guarantees the correct initialisation order. Tag runs keep the project's parallel setting.
 
