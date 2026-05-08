@@ -20,6 +20,10 @@ export interface ProjectConfig {
   buildFeatureArgs(relativePath: string): SpawnArgs;
   buildTagArgs(tag: string): SpawnArgs;
   buildDryRunArgs(featureRelPath: string): SpawnArgs;
+  // Debug: spawn with debugger listening, then attach VS Code debugger.
+  buildDebugScenarioArgs(name: string, featureRelPath?: string, line?: number): SpawnArgs;
+  debugPort: number;
+  debugType: 'node' | 'java' | 'debugpy';
   reportPath: string;
   stepFileGlob: string;
 }
@@ -63,16 +67,16 @@ function hasBehaveProject(cwd: string): boolean {
 
 function behaveConfig(projectRoot: string): ProjectConfig {
   const fmtArgs = ['--format', 'json', '-o', 'reports/behave.json'];
+  const behaveScenarioArgs = (name: string, feat?: string, line?: number) =>
+    feat && line !== undefined
+      ? [`${feat}:${line}`, ...fmtArgs]
+      : [...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs];
   return {
     type: 'python-behave',
     projectRoot,
     buildScenarioArgs: (name, feat, line) => ({
       file: 'behave',
-      // Behave supports "path/to/file.feature:15" line-number addressing.
-      // Use it when available to skip name-based filtering entirely.
-      args: feat && line !== undefined
-        ? [`${feat}:${line}`, ...fmtArgs]
-        : [...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs],
+      args: behaveScenarioArgs(name, feat, line),
     }),
     buildFeatureArgs: (rel) => ({
       file: 'behave',
@@ -86,6 +90,14 @@ function behaveConfig(projectRoot: string): ProjectConfig {
       file: 'behave',
       args: [rel, '--dry-run'],
     }),
+    buildDebugScenarioArgs: (name, feat, line) => ({
+      // python -m debugpy --listen 5678 --wait-for-client -m behave <scenario>
+      file: 'python',
+      args: ['-m', 'debugpy', '--listen', '5678', '--wait-for-client',
+             '-m', 'behave', ...behaveScenarioArgs(name, feat, line)],
+    }),
+    debugPort: 5678,
+    debugType: 'debugpy',
     reportPath:   'reports/behave.json',
     stepFileGlob: '**/*.py',
   };
@@ -120,18 +132,33 @@ function nodeConfig(projectRoot: string): ProjectConfig {
     return { file: 'node', args: ['-e', notInstalledMsg] };
   };
 
+  const DEBUG_PORT = 9229;
+  const nodeScenarioArgs = (name: string, feat?: string, line?: number) =>
+    feat && line !== undefined
+      ? [`${feat}:${line}`, ...fmtArgs]
+      : [...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs];
+
   return {
     type: 'node',
     projectRoot,
     // Use "file:line" addressing when possible — avoids the parallel coordinator
     // loading support files before reset() is called (which causes PENDING errors
     // when the project has "parallel: N" in cucumber.js). Falls back to --name.
-    buildScenarioArgs: (name, feat, line) => feat && line !== undefined
-      ? invoke([`${feat}:${line}`, ...fmtArgs])
-      : invoke([...(feat ? [feat] : []), '--name', safeFilter(name), ...fmtArgs]),
-    buildFeatureArgs:  (rel)         => invoke([rel, ...fmtArgs]),
-    buildTagArgs:      (tag)         => invoke(['--tags', tag, ...fmtArgs]),
-    buildDryRunArgs:   (rel)         => invoke([rel, '--dry-run']),
+    buildScenarioArgs: (name, feat, line) => invoke(nodeScenarioArgs(name, feat, line)),
+    buildFeatureArgs:  (rel)              => invoke([rel, ...fmtArgs]),
+    buildTagArgs:      (tag)              => invoke(['--tags', tag, ...fmtArgs]),
+    buildDryRunArgs:   (rel)              => invoke([rel, '--dry-run']),
+    buildDebugScenarioArgs: (name, feat, line) => {
+      const args = nodeScenarioArgs(name, feat, line);
+      // Must call node directly (not .cmd wrapper) so --inspect-brk reaches the
+      // node process, not cmd.exe.
+      if (fs.existsSync(localJs)) {
+        return { file: 'node', args: [`--inspect-brk=${DEBUG_PORT}`, localJs, ...args] };
+      }
+      return { file: 'node', args: ['-e', notInstalledMsg] };
+    },
+    debugPort: DEBUG_PORT,
+    debugType: 'node',
     reportPath,
     stepFileGlob: '**/*.{ts,js}',
   };
@@ -157,6 +184,13 @@ function gradleConfig(projectRoot: string, exe: string): ProjectConfig {
       file: exe,
       args: ['test', `-Pcucumber.features=${rel}`, '-Pcucumber.filter.dryRun=true'],
     }),
+    buildDebugScenarioArgs: (name, feat) => ({
+      // --debug-jvm suspends the JVM on port 5005 waiting for a debugger to attach.
+      file: exe,
+      args: ['test', '--debug-jvm', ...(feat ? [`-Pcucumber.features=${feat}`] : []), `-Pcucumber.filter.name=${safeFilter(name)}`],
+    }),
+    debugPort: 5005,
+    debugType: 'java',
     reportPath:  path.join('target', 'cucumber-report.json'),
     stepFileGlob: '**/*.java',
   };
@@ -182,6 +216,13 @@ function mavenConfig(projectRoot: string, exe: string): ProjectConfig {
       file: exe,
       args: ['test', `-Dcucumber.features=${rel}`, '-Dcucumber.filter.dryRun=true'],
     }),
+    buildDebugScenarioArgs: (name, feat) => ({
+      // -Dmaven.surefire.debug suspends the JVM on port 5005 waiting for a debugger.
+      file: exe,
+      args: ['test', '-Dmaven.surefire.debug', ...(feat ? [`-Dcucumber.features=${feat}`] : []), `-Dcucumber.filter.name=${safeFilter(name)}`],
+    }),
+    debugPort: 5005,
+    debugType: 'java',
     reportPath:  path.join('target', 'cucumber-report.json'),
     stepFileGlob: '**/*.java',
   };

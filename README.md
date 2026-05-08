@@ -245,6 +245,15 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.30
+**Debug mode** — a `$(debug-alt) Debug` button now appears above every scenario. Click it to run the scenario with the debugger attached: set a breakpoint in any step definition and step through it interactively without leaving VS Code. Works across all supported stacks:
+- **Node.js (cucumber-js)**: spawns with `--inspect-brk` and auto-attaches VS Code's Node debugger
+- **Java (Maven)**: runs with `-Dmaven.surefire.debug` (suspends on port 5005) and attaches the Java debugger
+- **Java (Gradle)**: runs with `--debug-jvm` (suspends on port 5005) and attaches the Java debugger
+- **Python (Behave)**: runs via `python -m debugpy --listen 5678 --wait-for-client` and attaches the Python debugger
+
+No `launch.json` configuration required — GherkinFlow attaches automatically after the process is ready.
+
 ### 0.9.29
 Fix: scenario runs on cucumber-js projects with `parallel: N` configured in `cucumber.js` no longer throw `"instance not running (PENDING)"`. The root cause: `--name "scenario"` filter forces the parallel coordinator to scan support files to match scenario names, but does so before `reset()` initialises the Cucumber instance. GherkinFlow now uses the `features/file.feature:LINE` line-number addressing format instead of `--name`, which lets cucumber-js filter scenarios directly from the Gherkin AST without touching support code. Falls back to `--name` only when no line number is available (rare fallback path).
 

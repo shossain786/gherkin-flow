@@ -11,6 +11,37 @@ import { LiveOutputParser, LiveStepResult } from './liveOutputParser';
 
 const OUTLINE_PREFIX = '[OUTLINE]';
 
+function buildDebugConfig(config: ProjectConfig): vscode.DebugConfiguration {
+  switch (config.debugType) {
+    case 'node':
+      return {
+        type: 'node',
+        request: 'attach',
+        name: 'GherkinFlow: Debug Scenario',
+        port: config.debugPort,
+        skipFiles: ['<node_internals>/**', '**/node_modules/@cucumber/**'],
+        restart: false,
+        localRoot: config.projectRoot,
+      };
+    case 'java':
+      return {
+        type: 'java',
+        request: 'attach',
+        name: 'GherkinFlow: Debug Scenario',
+        hostName: 'localhost',
+        port: config.debugPort,
+      };
+    case 'debugpy':
+      return {
+        type: 'debugpy',
+        request: 'attach',
+        name: 'GherkinFlow: Debug Scenario',
+        connect: { host: 'localhost', port: config.debugPort },
+        pathMappings: [{ localRoot: config.projectRoot, remoteRoot: config.projectRoot }],
+      };
+  }
+}
+
 // Finds the primary report file plus any parallel siblings written alongside it.
 // Covers two common parallel-runner conventions:
 //   1. Numbered siblings:  target/cucumber-report-1.json, -2.json, ...
@@ -203,6 +234,33 @@ export class GherkinTestController {
       return;
     }
     await this._launchRun(new vscode.TestRunRequest([featureItem]));
+  }
+
+  public async debugScenario(scenarioName: string, uri: vscode.Uri): Promise<void> {
+    const config = this.getConfig(uri);
+    const cwd = config.projectRoot;
+    const featRel = path.relative(cwd, uri.fsPath).replace(/\\/g, '/');
+    const featureItem = this.featureItems.get(uri.fsPath);
+
+    let target: vscode.TestItem | undefined;
+    if (featureItem) {
+      featureItem.children.forEach(child => {
+        if (child.label === scenarioName) { target = child; return; }
+        if (itemLevel(child) === 'outline') {
+          child.children.forEach(example => {
+            if (example.label === scenarioName) { target = example; }
+          });
+        }
+      });
+    }
+
+    const lineNo = target?.range ? target.range.start.line + 1 : undefined;
+    const spawnArgs = config.buildDebugScenarioArgs(scenarioName, featRel, lineNo);
+    const request = new vscode.TestRunRequest(target ? [target] : undefined);
+    await this._launchCustomRun(request, async (run, token) => {
+      if (target) { this._markStarted(run, target); }
+      await this._executeDebug(run, target, config, spawnArgs, token, uri);
+    });
   }
 
   public async runByTag(tag: string, uri: vscode.Uri): Promise<void> {
@@ -556,6 +614,79 @@ export class GherkinTestController {
           }
           this._onDidRunTests.fire(item.uri);
           this._applyInlineDecorations(item, report);
+        }
+        resolve();
+      });
+    });
+  }
+
+  private async _executeDebug(
+    run: vscode.TestRun,
+    item: vscode.TestItem | undefined,
+    config: ProjectConfig,
+    spawnArgs: SpawnArgs,
+    token: vscode.CancellationToken,
+    fallbackUri: vscode.Uri
+  ): Promise<void> {
+    const cwd = config.projectRoot;
+    return new Promise(resolve => {
+      const quoted = (s: string) => /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
+      const cmdStr = [spawnArgs.file, ...spawnArgs.args].map(quoted).join(' ');
+      run.appendOutput(`\r\n🐛 ${cmdStr}\r\n\r\n`);
+
+      const spawnEnv = { ...process.env };
+      delete spawnEnv.NODE_PATH;
+      delete spawnEnv.NODE_OPTIONS;
+      delete spawnEnv.ELECTRON_RUN_AS_NODE;
+
+      const proc = spawn(cmdStr, [], { cwd, shell: true, env: spawnEnv });
+      token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
+      proc.on('error', (err) => { run.appendOutput(`\r\nFailed to start: ${err.message}\r\n`); resolve(); });
+
+      let attached = false;
+      const attach = async () => {
+        if (attached) { return; }
+        attached = true;
+        const folder = (item?.uri ?? fallbackUri)
+          ? vscode.workspace.getWorkspaceFolder(item?.uri ?? fallbackUri)
+          : undefined;
+        const debugCfg = buildDebugConfig(config);
+        run.appendOutput(`Attaching debugger on port ${config.debugPort}…\r\n`);
+        try {
+          await vscode.debug.startDebugging(folder, debugCfg);
+        } catch (err) {
+          run.appendOutput(`\r\nCould not attach debugger: ${err}\r\n`);
+        }
+      };
+
+      proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
+      proc.stderr?.on('data', (c: Buffer) => {
+        const text = c.toString();
+        run.appendOutput(text.replace(/\r?\n/g, '\r\n'));
+        if (config.debugType === 'java'    && /Listening for transport/i.test(text)) { void attach(); }
+        if (config.debugType === 'debugpy' && /waiting for client/i.test(text))      { void attach(); }
+      });
+
+      // Node: --inspect-brk pauses the process immediately; attach after a short delay.
+      if (config.debugType === 'node') { setTimeout(() => void attach(), 500); }
+
+      proc.on('close', () => {
+        if (item) {
+          const reportFiles = collectReportFiles(cwd, config.reportPath);
+          const report = parseReports(reportFiles);
+          const failures: vscode.TestItem[] = [];
+          this._applyResults(run, item, report, failures);
+          const featureUri = item.uri?.fsPath;
+          if (featureUri) {
+            if (!this._failedScenarios.has(featureUri)) { this._failedScenarios.set(featureUri, new Map()); }
+            const featureFailures = this._failedScenarios.get(featureUri)!;
+            for (const s of this._collectScenarioItems(item)) {
+              if (failures.includes(s)) { featureFailures.set(s.id, s); }
+              else                      { featureFailures.delete(s.id); }
+            }
+            this._onDidRunTests.fire(item.uri!);
+            this._applyInlineDecorations(item, report);
+          }
         }
         resolve();
       });

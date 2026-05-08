@@ -180,6 +180,13 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           command: 'gherkinFlow.runScenarioByName',
           arguments: [scenarioName, document.uri]
         }));
+        if (!isOutline) {
+          lenses.push(new vscode.CodeLens(range, {
+            title: '$(debug-alt) Debug',
+            command: 'gherkinFlow.debugScenarioByName',
+            arguments: [scenarioName, document.uri]
+          }));
+        }
         if (failedNames.has(scenarioName)) {
           lenses.push(new vscode.CodeLens(range, {
             title: '🔄 Re-run',
@@ -271,6 +278,12 @@ export async function activate(context: vscode.ExtensionContext) {
   const runScenarioByName = vscode.commands.registerCommand(
     'gherkinFlow.runScenarioByName',
     (scenarioName: string, uri: vscode.Uri) => controller.runScenario(scenarioName, uri)
+  );
+
+  // CodeLens: debug scenario by name
+  const debugScenarioByName = vscode.commands.registerCommand(
+    'gherkinFlow.debugScenarioByName',
+    (scenarioName: string, uri: vscode.Uri) => controller.debugScenario(scenarioName, uri)
   );
 
   // CodeLens: run feature by URI
@@ -415,6 +428,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     tagsView,
     usageCodeLens,
+    debugScenarioByName,
     dryRunCmd,
     watchScenarioCmd,
     showHistoryCmd,
