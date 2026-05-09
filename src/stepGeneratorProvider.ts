@@ -53,11 +53,25 @@ export function collectMissingSteps(
 
 // --- Stub generation ---
 
+// Cucumber Expression format — used for Java / TS / JS stubs.
 function textToPattern(text: string): string {
   let p = text.replace(/"[^"]*"/g, '{string}').replace(/'[^']*'/g, '{string}');
   p = p.replace(/\b\d+\.\d+\b/g, '{float}');
   p = p.replace(/\b\d+\b/g, '{int}');
   return p;
+}
+
+// Behave parse format — preserves quotes in pattern, uses named positional params.
+// "I enter \"admin\" in \"username\""  →  { pattern: 'I enter "{arg0}" in "{arg1}"', params: ['arg0','arg1'] }
+function textToPatternBehave(text: string): { pattern: string; params: string[] } {
+  let p = text;
+  const params: string[] = [];
+  let n = 0;
+  p = p.replace(/"[^"]*"/g,    () => { const name = `arg${n++}`; params.push(name); return `"{${name}}"`; });
+  p = p.replace(/'[^']*'/g,    () => { const name = `arg${n++}`; params.push(name); return `'{${name}}'`; });
+  p = p.replace(/\b\d+\.\d+\b/g, () => { const name = `arg${n++}`; params.push(name); return `{${name}:f}`; });
+  p = p.replace(/\b\d+\b/g,   () => { const name = `arg${n++}`; params.push(name); return `{${name}:d}`; });
+  return { pattern: p, params };
 }
 
 function patternToMethodName(pattern: string): string {
@@ -71,8 +85,8 @@ function patternToMethodName(pattern: string): string {
   return words.map((w, i) => i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join('');
 }
 
-function patternToSnakeCase(pattern: string): string {
-  const words = pattern
+function patternToSnakeCase(text: string): string {
+  const words = text
     .replace(/\{[^}]+\}/g, ' ')
     .replace(/[^a-zA-Z0-9\s]/g, ' ')
     .trim()
@@ -80,14 +94,6 @@ function patternToSnakeCase(pattern: string): string {
     .filter(Boolean);
   if (words.length === 0) { return 'step_impl'; }
   return words.map(w => w.toLowerCase()).join('_');
-}
-
-function extractParamNamesPython(pattern: string): string[] {
-  const params: string[] = [];
-  const re = /\{(\w+)\}/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(pattern)) !== null) { params.push(m[1]); }
-  return params;
 }
 
 function extractParams(pattern: string, ext: string): string[] {
@@ -123,6 +129,26 @@ function generateStub(step: MissingStep, ext: string): string {
   const kw = normaliseKeyword(step.keyword);
   const quoted = JSON.stringify(pattern);
 
+  if (ext === 'py') {
+    // Use Behave's parse format: quoted strings become "{argN}", integers {argN:d}, floats {argN:f}.
+    // Derive function name from step text with literal values stripped (not from pattern),
+    // so "I enter "admin" in "field"" → i_enter_in rather than i_enter_admin_in_field.
+    const { pattern: behavePattern, params: behaveParams } = textToPatternBehave(step.text);
+    const stripped = step.text.replace(/"[^"]*"/g, '').replace(/'[^']*'/g, '')
+      .replace(/\b\d+\.\d+\b/g, '').replace(/\b\d+\b/g, '');
+    const fnName = patternToSnakeCase(stripped) || 'step_impl';
+    const allParams = ['context', ...behaveParams];
+    if (step.hasDataTable) { allParams.push('table'); }
+    if (step.hasDocString) { allParams.push('text'); }
+    return [
+      `@${kw.toLowerCase()}(u'${behavePattern}')`,
+      `def ${fnName}(${allParams.join(', ')}):`,
+      `    # TODO: implement`,
+      `    raise NotImplementedError(u'STEP: ${step.keyword} ${step.text}')`,
+      ``,
+    ].join('\n');
+  }
+
   if (step.hasDataTable) {
     if (ext === 'java')     { params.push('io.cucumber.datatable.DataTable dataTable'); }
     else if (ext === 'ts')  { params.push('dataTable: DataTable'); }
@@ -131,18 +157,6 @@ function generateStub(step: MissingStep, ext: string): string {
     if (ext === 'java')     { params.push('String docString'); }
     else if (ext === 'ts')  { params.push('docString: string'); }
     else                    { params.push('docString'); }
-  }
-
-  if (ext === 'py') {
-    const fnName   = patternToSnakeCase(pattern);
-    const pyParams = ['context', ...extractParamNamesPython(pattern)];
-    return [
-      `@${kw.toLowerCase()}(u${quoted})`,
-      `def ${fnName}(${pyParams.join(', ')}):`,
-      `    # TODO: implement`,
-      `    raise NotImplementedError(u'STEP: ${kw} ${step.text}')`,
-      ``,
-    ].join('\n');
   }
 
   if (ext === 'java') {
@@ -234,7 +248,13 @@ export async function executeGenerateSteps(
   if (missing.length === 0) { return; }
 
   type PickItem = vscode.QuickPickItem & { filePath?: string };
-  const defFiles = index.getDefinitionFiles();
+  // Only offer step files that match the project's language so Python projects
+  // don't show Java/TS files and vice versa.
+  const allowedExts = config.type === 'python-behave' ? ['py']
+    : config.type === 'node' ? ['ts', 'js']
+    : ['java'];
+  const defFiles = index.getDefinitionFiles()
+    .filter(f => allowedExts.includes(path.extname(f).slice(1).toLowerCase()));
   const items: PickItem[] = [
     { label: '$(add) Create new file...', description: 'Create a new step definition file' },
     ...defFiles.map(f => ({

@@ -245,6 +245,9 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.31
+Fix: Python / Behave stub generation now produces valid, runnable stubs. Previously the generator used Cucumber Expression syntax (`{string}`, `{int}`) which Behave does not understand, and produced duplicate parameter names (e.g. `def func(context, string, string)`) that are invalid Python. Stubs now use Behave's `parse` format — quoted strings become `"{argN}"`, integers `{argN:d}`, floats `{argN:f}` — with unique parameter names and function names derived from the step text rather than the literal values. The step file picker now only shows `.py` files for Behave projects (previously showed Java/TS/JS files alongside Python ones).
+
 ### 0.9.30
 **Debug mode** — a `$(debug-alt) Debug` button now appears above every scenario. Click it to run the scenario with the debugger attached: set a breakpoint in any step definition and step through it interactively without leaving VS Code. Works across all supported stacks:
 - **Node.js (cucumber-js)**: spawns with `--inspect-brk` and auto-attaches VS Code's Node debugger
