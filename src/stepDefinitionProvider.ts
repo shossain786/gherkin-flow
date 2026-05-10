@@ -65,14 +65,14 @@ export class StepDefinitionIndex {
   private _defs: StepDefinition[] = [];
   private _defsByFile = new Map<string, StepDefinition[]>();
   private _watcher: vscode.FileSystemWatcher;
-  private readonly _onDidChange = new vscode.EventEmitter<void>();
+  private readonly _onDidChange = new vscode.EventEmitter<vscode.Uri | undefined>();
   readonly onDidChange = this._onDidChange.event;
 
   constructor(context: vscode.ExtensionContext) {
     this._watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js,py}');
     this._watcher.onDidCreate(uri => this._reloadFile(uri));
     this._watcher.onDidChange(uri => this._reloadFile(uri));
-    this._watcher.onDidDelete(uri => this._removeFile(uri));
+    this._watcher.onDidDelete(uri => { this._removeFile(uri); this._onDidChange.fire(uri); });
     context.subscriptions.push(this._watcher);
   }
 
@@ -123,7 +123,7 @@ export class StepDefinitionIndex {
     } catch {
       // unreadable — skip
     }
-    this._onDidChange.fire();
+    this._onDidChange.fire(uri);
   }
 
   private _parseFile(uri: vscode.Uri, text: string): void {

@@ -77,6 +77,7 @@ That's not a test workflow. That's a context-switch tax.
 | Hunt for tag usage across files | **Tags sidebar** shows all tags with pass/fail counts |
 | Can't see parameter types in feature files | **Inlay hints** show `: string`, `: int` inline |
 | Dead step definitions accumulate silently | **Usage heatmap** flags unused steps instantly |
+| Save a step file, wonder what broke | **Impact finder** shows affected scenarios instantly |
 
 ---
 
@@ -244,6 +245,19 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 ---
 
 ## Release Notes
+
+### 0.9.33
+Fix: Impacted test finder now works correctly for TypeScript/JavaScript cucumber-js projects. The previous version used `onDidSaveTextDocument` to capture the pre-save step pattern snapshot, but on Windows the OS file-watcher (`ReadDirectoryChangesW`) can notify VS Code and reload the index before `onDidSaveTextDocument` fires for fast-writing file types like `.ts`/`.js`. This caused the "before" and "after" snapshots to be identical and no notification to appear. Fixed by switching to `onWillSaveTextDocument` which fires before the file hits disk, guaranteeing the snapshot is always captured before any reload. Also normalises file path keys to lowercase to prevent Windows drive-letter case mismatches between VS Code's URI system and OS paths.
+
+### 0.9.32
+**Impacted test finder** — GherkinFlow now watches your step definition files and automatically identifies which scenarios are affected when you save changes. Save a `.java`, `.ts`, `.js`, or `.py` step file and a notification appears instantly:
+
+> *⚡ 14 scenarios affected by step changes in LoginSteps.java (2 patterns removed)*
+
+- **Run Impacted** — runs only the affected scenarios in Test Explorer with one click, no manual test selection needed
+- **Show List** — opens a searchable list of all affected scenarios with feature name and file path; click any entry to navigate directly to it
+- No notification is shown when no scenarios are affected, keeping the experience quiet by default
+- Uses the already-loaded Test Explorer tree — zero additional file I/O on save
 
 ### 0.9.31
 Fix: Python / Behave stub generation now produces valid, runnable stubs. Previously the generator used Cucumber Expression syntax (`{string}`, `{int}`) which Behave does not understand, and produced duplicate parameter names (e.g. `def func(context, string, string)`) that are invalid Python. Stubs now use Behave's `parse` format — quoted strings become `"{argN}"`, integers `{argN:d}`, floats `{argN:f}` — with unique parameter names and function names derived from the step text rather than the literal values. The step file picker now only shows `.py` files for Behave projects (previously showed Java/TS/JS files alongside Python ones).

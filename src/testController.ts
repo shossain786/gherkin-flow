@@ -132,7 +132,7 @@ function buildFailureMessage(scenario: ParsedScenario): vscode.MarkdownString {
 export class GherkinTestController {
   private readonly ctrl: vscode.TestController;
   private readonly watcher: vscode.FileSystemWatcher;
-  private readonly featureItems   = new Map<string, vscode.TestItem>();
+  readonly featureItems   = new Map<string, vscode.TestItem>();
   private readonly scenarioTags   = new Map<string, string[]>();
   private readonly stepLines      = new Map<string, number>();
   // keyed featureUri → Map<itemId, TestItem> so partial runs merge instead of replace
@@ -196,6 +196,11 @@ export class GherkinTestController {
 
   public getFailedScenarios(uri: vscode.Uri): vscode.TestItem[] {
     return [...(this._failedScenarios.get(uri.fsPath)?.values() ?? [])];
+  }
+
+  public async runItems(items: vscode.TestItem[]): Promise<void> {
+    if (items.length === 0) { return; }
+    await this._launchRun(new vscode.TestRunRequest(items));
   }
 
   public async rerunFailed(uri: vscode.Uri): Promise<void> {
