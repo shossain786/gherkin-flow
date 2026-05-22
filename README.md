@@ -246,6 +246,24 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.35
+**Gherkin Quality Linter** — GherkinFlow now analyses your feature files for structural and style issues and reports them as inline diagnostics (visible in the Problems panel and as underlines in the editor):
+
+| Code | Severity | Rule |
+|---|---|---|
+| GF001 | ❌ Error | Duplicate scenario name in the same feature |
+| GF002 | ⚠ Warning | Scenario Outline with only one example row — use a plain Scenario |
+| GF003 | ⚠ Warning | Scenario has no Then step (no assertion) |
+| GF004 | ⚠ Warning | Scenario has no When step (no action) |
+| GF005 | ⚠ Warning | Scenario has more than 8 steps — consider splitting |
+| GF006 | 💡 Hint | Step leaks UI implementation detail (click, button, CSS selector, XPath…) |
+| GF007 | 💡 Hint | Step contains developer jargon (API, SQL, JSON, endpoint…) |
+
+Fix: Scenario Outline parent (`▶ Run All Rows`) now uses `file:LINE` addressing instead of `--name`, matching the fix applied to regular scenarios in 0.9.29. This eliminates the `PENDING` error that occurred when `parallel: N` was set in `cucumber.js`.
+
+### 0.9.34
+Fix: Impacted test finder now works reliably across all supported languages (Java, TypeScript, JavaScript, Python). The previous two implementations both depended on VS Code save events (`onDidSaveTextDocument`, `onWillSaveTextDocument`) to capture a pre-change snapshot, which was unreliable — save events fire at different times relative to the OS file-watcher depending on the language tooling and platform. Replaced with a baseline-snapshot approach: at startup the analyzer seeds a pattern cache from the already-scanned index, then on every `onDidChange(uri)` event it diffs the current index state against that cache and updates the cache. No save events involved — works for user saves, auto-save, external formatters, and git operations equally.
+
 ### 0.9.33
 Fix: Impacted test finder now works correctly for TypeScript/JavaScript cucumber-js projects. The previous version used `onDidSaveTextDocument` to capture the pre-save step pattern snapshot, but on Windows the OS file-watcher (`ReadDirectoryChangesW`) can notify VS Code and reload the index before `onDidSaveTextDocument` fires for fast-writing file types like `.ts`/`.js`. This caused the "before" and "after" snapshots to be identical and no notification to appear. Fixed by switching to `onWillSaveTextDocument` which fires before the file hits disk, guaranteeing the snapshot is always captured before any reload. Also normalises file path keys to lowercase to prevent Windows drive-letter case mismatches between VS Code's URI system and OS paths.
 

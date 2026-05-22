@@ -14,6 +14,7 @@ import { TagsTreeProvider } from './tagsTreeProvider';
 import { StepUsageIndex, StepUsageCodeLensProvider } from './stepUsageProvider';
 import { ScenarioHistoryStore } from './scenarioHistoryStore';
 import { ImpactAnalyzer } from './impactAnalyzer';
+import { GherkinLinter } from './gherkinLinter';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -412,6 +413,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
   // Impact analysis — notify when step definition changes affect existing scenarios
   new ImpactAnalyzer(stepIndex, controller, context);
+
+  // Gherkin quality linter — structural and style diagnostics
+  new GherkinLinter(context);
 
   // Tags sidebar
   const tagsProvider = new TagsTreeProvider(context, controller);

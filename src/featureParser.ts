@@ -13,6 +13,7 @@ export interface FeatureScenario {
   steps: FeatureStep[];
   tags: string[];
   outlineName?: string;   // set when this is an expanded Scenario Outline row
+  outlineLine?: number;   // line of the "Scenario Outline:" keyword for the parent
 }
 
 export interface ParsedFeature {
@@ -112,7 +113,8 @@ export function parseFeatureFile(document: vscode.TextDocument): ParsedFeature |
             line: i,
             steps: expandedSteps,
             tags: [...outlineTemplate.tags],
-            outlineName: outlineTemplate.name
+            outlineName: outlineTemplate.name,
+            outlineLine: outlineTemplate.line,
           });
         }
         continue;

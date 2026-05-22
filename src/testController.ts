@@ -426,6 +426,11 @@ export class GherkinTestController {
             outlineItem = this.ctrl.createTestItem(outlineId, scenario.outlineName, uri);
             outlineItem.description = 'Scenario Outline';
             outlineItem.sortText = idxStr;
+            // Store the "Scenario Outline:" keyword line so _runHandler can use
+            // file:line addressing instead of --name (avoids PENDING in parallel mode).
+            if (scenario.outlineLine !== undefined) {
+              outlineItem.range = new vscode.Range(scenario.outlineLine, 0, scenario.outlineLine, 0);
+            }
             featureItem.children.add(outlineItem);
             outlineItems.set(scenario.outlineName, outlineItem);
             outlineCounters.set(scenario.outlineName, 0);
@@ -517,8 +522,9 @@ export class GherkinTestController {
           spawnArgs = config.buildFeatureArgs(featRel);
           break;
         case 'outline':
-          // Run all examples via name — line-number addressing targets a single row.
-          spawnArgs = config.buildScenarioArgs(outlineFilter(item.label), featRel);
+          // file:line on the "Scenario Outline:" header runs all its example rows
+          // without --name, avoiding the PENDING error in parallel: N projects.
+          spawnArgs = config.buildScenarioArgs(outlineFilter(item.label), featRel, lineNo);
           break;
         case 'example':
           spawnArgs = config.buildScenarioArgs(item.label, featRel, lineNo);
