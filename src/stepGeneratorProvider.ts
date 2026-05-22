@@ -4,6 +4,7 @@ import * as path from 'path';
 import { parseFeatureFile } from './featureParser';
 import { StepDefinitionIndex } from './stepDefinitionProvider';
 import { ProjectConfig } from './projectDetector';
+import { findSimilarSteps, fillPattern } from './stepSuggester';
 
 export interface MissingStep {
   keyword: string;
@@ -328,10 +329,36 @@ export class StepGeneratorProvider implements vscode.CodeActionProvider {
 
     const actions: vscode.CodeAction[] = [];
 
+    // ── Similar step suggestions (shown first, above Generate) ──────────────
+    const similar = findSimilarSteps(stepsAtCursor[0].text, this._index);
+    for (const suggestion of similar) {
+      const line      = document.lineAt(stepsAtCursor[0].line);
+      const stepMatch = line.text.match(/^(\s*(?:Given|When|Then|And|But|\*)\s+)(.*)/i);
+      if (!stepMatch) { continue; }
+
+      const filled    = fillPattern(stepMatch[2], suggestion.rawPattern);
+      const relPath   = vscode.workspace.asRelativePath(suggestion.location.uri);
+      const lineNo    = suggestion.location.range.start.line + 1;
+      const pct       = Math.round(suggestion.similarity * 100);
+
+      const action    = new vscode.CodeAction(
+        `💡 Use: ${suggestion.rawPattern}  (${pct}% match — ${relPath}:${lineNo})`,
+        vscode.CodeActionKind.QuickFix
+      );
+      action.diagnostics = [gherkinDiags[0]];
+      action.isPreferred = similar.indexOf(suggestion) === 0; // top match = preferred
+
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(document.uri, line.range, stepMatch[1] + filled);
+      action.edit = edit;
+      actions.push(action);
+    }
+
+    // ── Generate new stub ────────────────────────────────────────────────────
     const singleAction = new vscode.CodeAction(`⚡ Generate step definition`, vscode.CodeActionKind.QuickFix);
     singleAction.command = { command: 'gherkinFlow.generateSteps', title: 'Generate Step Definition', arguments: [document.uri, [stepsAtCursor[0]]] };
     singleAction.diagnostics = [gherkinDiags[0]];
-    singleAction.isPreferred = true;
+    if (similar.length === 0) { singleAction.isPreferred = true; }
     actions.push(singleAction);
 
     if (allMissing.length > 1) {

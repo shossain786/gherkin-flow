@@ -246,6 +246,23 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.36
+**Similar step suggester** — when a step has no definition, GherkinFlow now analyses your existing step patterns for semantic similarity and offers quick-fix actions directly in the lightbulb menu:
+
+```
+⚠ No step definition found for: "I navigate to the home page"
+  💡 Use: I navigate to {string}   (87% match — LoginSteps.java:12)
+  💡 Use: I am on the {string} page (61% match — NavigationSteps.java:8)
+  ⚡ Generate step definition
+```
+
+- Similarity is computed using Jaccard index on meaningful word tokens (stop words stripped)
+- The replacement preserves values from the original step text: `{string}` slots are filled with quoted values already present, `{int}`/`{float}` slots with numbers
+- The top suggestion is marked as the preferred (bold) action; Generate stub falls back when no similar step is found
+- Works across all supported stacks (Java, TypeScript, JavaScript, Python)
+
+**HTML/Allure report opener** — a `📄 Open Report` button appears on the `Feature:` line whenever a report file is detected in the project. Clicking it opens the report directly in the system browser — no terminal, no file explorer. Checks in order: the `html:` formatter path declared in `cucumber.js`, then Allure (`allure-report/index.html`), then common defaults for Maven, Gradle, and cucumber-js. The button appears only when the file actually exists, so it stays hidden until at least one run has completed.
+
 ### 0.9.35
 **Gherkin Quality Linter** — GherkinFlow now analyses your feature files for structural and style issues and reports them as inline diagnostics (visible in the Problems panel and as underlines in the editor):
 

@@ -103,6 +103,14 @@ export class StepDefinitionIndex {
     return [...new Set(this._defs.map(d => d.rawPattern))];
   }
 
+  getAllDefs(): Array<{ rawPattern: string; pattern: RegExp; location: vscode.Location }> {
+    return this._defs.map(d => ({
+      rawPattern: d.rawPattern,
+      pattern: d.pattern,
+      location: d.location,
+    }));
+  }
+
   getDefinitionFiles(): string[] {
     return [...this._defsByFile.keys()];
   }

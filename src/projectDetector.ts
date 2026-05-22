@@ -54,6 +54,37 @@ function extractCucumberJsonPath(cwd: string): string | undefined {
   return undefined;
 }
 
+function extractCucumberHtmlPath(cwd: string): string | undefined {
+  for (const f of ['cucumber.js', '.cucumber.js', 'cucumber.mjs', 'cucumber.cjs', 'cucumber.yaml', '.cucumber.yaml']) {
+    try {
+      const content = fs.readFileSync(path.join(cwd, f), 'utf8');
+      const m = content.match(/['"`]html:([^'"`\s,)]+)/);
+      if (m) { return m[1]; }
+    } catch {}
+  }
+  return undefined;
+}
+
+// Finds the first existing HTML report in the project, checking the project's
+// configured formatter path first then common framework defaults.
+export function findHtmlReport(projectRoot: string): string | undefined {
+  const candidates = [
+    extractCucumberHtmlPath(projectRoot),   // cucumber.js html: formatter
+    'allure-report/index.html',             // Allure (all stacks)
+    'reports/html/cucumber-report.html',    // cucumber-js common
+    'reports/html/index.html',
+    'reports/index.html',
+    'target/cucumber-reports/index.html',   // Maven cucumber-reporting plugin
+    'target/site/cucumber-pretty/index.html',
+    'build/reports/tests/test/index.html',  // Gradle HTML test report
+  ].filter((p): p is string => Boolean(p));
+
+  for (const rel of candidates) {
+    if (fs.existsSync(path.join(projectRoot, rel))) { return rel; }
+  }
+  return undefined;
+}
+
 function hasBehaveProject(cwd: string): boolean {
   if (exists(cwd, 'behave.ini')) { return true; }
   if (fs.existsSync(path.join(cwd, 'features', 'steps'))) { return true; }

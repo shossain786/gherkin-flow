@@ -15,6 +15,7 @@ import { StepUsageIndex, StepUsageCodeLensProvider } from './stepUsageProvider';
 import { ScenarioHistoryStore } from './scenarioHistoryStore';
 import { ImpactAnalyzer } from './impactAnalyzer';
 import { GherkinLinter } from './gherkinLinter';
+import { findHtmlReport } from './projectDetector';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -94,6 +95,9 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
     const failedNames = new Set(
       this._controller.getFailedScenarios(document.uri).map(item => item.label)
     );
+    // Resolve once per document — used in the Feature line block below.
+    const config     = this._controller.getConfig(document.uri);
+    const htmlReport = findHtmlReport(config.projectRoot);
 
     // Outline / Examples table state
     let outlineTemplateName: string | undefined;
@@ -115,6 +119,13 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           command: 'gherkinFlow.dryRun',
           arguments: [document.uri]
         }));
+        if (htmlReport) {
+          lenses.push(new vscode.CodeLens(range, {
+            title: '📄 Open Report',
+            command: 'gherkinFlow.openReport',
+            arguments: [vscode.Uri.file(path.join(config.projectRoot, htmlReport))]
+          }));
+        }
         const missing = this._getMissingSteps(document);
         if (missing.length > 0) {
           lenses.push(new vscode.CodeLens(range, {
@@ -318,6 +329,12 @@ export async function activate(context: vscode.ExtensionContext) {
     (uri: vscode.Uri) => controller.dryRun(uri)
   );
 
+  // Open HTML / Allure report in the system browser
+  const openReportCmd = vscode.commands.registerCommand(
+    'gherkinFlow.openReport',
+    (uri: vscode.Uri) => vscode.env.openExternal(uri)
+  );
+
   // Stop the active run
   const stopRunCmd = vscode.commands.registerCommand(
     'gherkinFlow.stopRun',
@@ -437,6 +454,7 @@ export async function activate(context: vscode.ExtensionContext) {
     tagsView,
     usageCodeLens,
     debugScenarioByName,
+    openReportCmd,
     dryRunCmd,
     watchScenarioCmd,
     showHistoryCmd,
