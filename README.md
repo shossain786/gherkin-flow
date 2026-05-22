@@ -1,10 +1,12 @@
 # Gherkin Flow
 
-**Debug Gherkin tests 5× faster — without leaving VS Code.**
+**The AI-powered BDD toolkit for VS Code.**
 
-> Built for **QA Automation Engineers** and **BDD teams** who write Cucumber scenarios daily and want their editor to actively support their workflow — not just display files.
+> Write better scenarios, run faster, debug instantly — without leaving your feature file.
 >
-> Supports **Java** (Maven / Gradle), **JavaScript / TypeScript** (cucumber-js), and **Python** (Behave) out of the box — zero configuration required.
+> Describe a requirement in plain English and watch GherkinFlow generate a complete `.feature` file. Run any scenario with one click, step through failures in the debugger, and let the AI-driven quality linter catch bad BDD before your team review.
+>
+> Supports **Java** (Maven / Gradle), **JavaScript / TypeScript** (cucumber-js), and **Python** (Behave) — zero configuration required.
 
 ---
 
@@ -22,9 +24,11 @@ Your Gherkin test fails. Now what?
 4. Re-run the entire suite and wait again
 5. Repeat — ten times a day
 
-That's not a test workflow. That's a context-switch tax.
+And before it even runs: you spent 20 minutes writing scenarios from scratch, duplicated three step definitions that already existed, and shipped scenarios with no `Then` assertion that nobody caught in review.
 
-**GherkinFlow eliminates every one of those switches.** Run, inspect, navigate, and fix — all from the feature file.
+That's not a test workflow. That's a context-switch tax — plus a quality problem.
+
+**GherkinFlow eliminates every one of those switches** and brings AI into your BDD loop: generate scenarios, catch quality issues, debug step-by-step, and know instantly when your code changes break existing tests — all from the feature file.
 
 ---
 
@@ -66,18 +70,21 @@ That's not a test workflow. That's a context-switch tax.
 
 | Without GherkinFlow | With GherkinFlow |
 |---|---|
+| Write scenarios from scratch every time | **AI generates a full feature file** from plain English |
 | Run tests from the terminal | Click **▶** directly above any scenario |
 | Scroll terminal output to find failures | See pass/fail **per step** in Test Explorer |
+| Add print statements and re-run to debug | **One-click debug** — attach the debugger to any scenario |
 | Search Java / TS / JS files manually for step definitions | **Ctrl+click** any step to jump instantly |
-| No editor feedback while writing steps | **Autocomplete** from your existing definitions |
+| Write a step that already exists elsewhere | **Similar step suggester** shows the closest match |
 | Undefined steps only fail at runtime | **Underline warning** appears as you type |
 | Write stub boilerplate by hand | **Generate all missing stubs** in one click |
+| Bad BDD only gets caught in PR review | **Quality linter** flags no-Then, too many steps, UI leaks |
 | No context when reading a step | **Hover** shows the matched pattern + doc comment |
 | Re-run manually after every edit | **Watch mode** reruns on save automatically |
 | Hunt for tag usage across files | **Tags sidebar** shows all tags with pass/fail counts |
-| Can't see parameter types in feature files | **Inlay hints** show `: string`, `: int` inline |
 | Dead step definitions accumulate silently | **Usage heatmap** flags unused steps instantly |
 | Save a step file, wonder what broke | **Impact finder** shows affected scenarios instantly |
+| Switch to browser to check the HTML report | **Open Report** launches it from the Feature line |
 
 ---
 
@@ -246,6 +253,15 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 
 ## Release Notes
 
+### 0.9.37
+**AI: Generate Scenarios from Description** — Command palette → `GherkinFlow: Generate Scenarios from Description`. Type (or select) a plain-English requirement and GherkinFlow generates a complete, production-quality `.feature` file using GitHub Copilot. The result streams live into a new editor tab so you see scenarios appear as they are written. Up to 25 existing step patterns from your project are injected as context so the AI reuses real definitions instead of inventing new ones. Requires VS Code 1.90+ with GitHub Copilot installed; all other features work without it.
+
+**HTML/Allure report opener** — a `📄 Open Report` button appears on the `Feature:` line whenever a report file is detected in the project. Clicking it opens the report directly in the system browser. Checks in order: the `html:` formatter path declared in `cucumber.js`, then Allure (`allure-report/index.html`), then common defaults for Maven, Gradle, and cucumber-js.
+
+**Similar step suggester** — when a step has no definition, the lightbulb now offers existing step patterns ranked by similarity before the Generate option.
+
+**Outline PENDING fix** — `▶ Run All Rows` on Scenario Outlines now uses `file:LINE` addressing, eliminating the PENDING error in projects with `parallel: N` configured.
+
 ### 0.9.36
 **Similar step suggester** — when a step has no definition, GherkinFlow now analyses your existing step patterns for semantic similarity and offers quick-fix actions directly in the lightbulb menu:
 
@@ -260,8 +276,6 @@ Have a feature request or found a bug? Open an issue on [GitHub](https://github.
 - The replacement preserves values from the original step text: `{string}` slots are filled with quoted values already present, `{int}`/`{float}` slots with numbers
 - The top suggestion is marked as the preferred (bold) action; Generate stub falls back when no similar step is found
 - Works across all supported stacks (Java, TypeScript, JavaScript, Python)
-
-**HTML/Allure report opener** — a `📄 Open Report` button appears on the `Feature:` line whenever a report file is detected in the project. Clicking it opens the report directly in the system browser — no terminal, no file explorer. Checks in order: the `html:` formatter path declared in `cucumber.js`, then Allure (`allure-report/index.html`), then common defaults for Maven, Gradle, and cucumber-js. The button appears only when the file actually exists, so it stays hidden until at least one run has completed.
 
 ### 0.9.35
 **Gherkin Quality Linter** — GherkinFlow now analyses your feature files for structural and style issues and reports them as inline diagnostics (visible in the Problems panel and as underlines in the editor):

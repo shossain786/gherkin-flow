@@ -1,8 +1,8 @@
 {
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
-  "description": "Debug Gherkin tests 5× faster. Supports Java (Maven/Gradle) and JavaScript/TypeScript (cucumber-js). Run scenarios, see step-by-step pass/fail, jump to definitions, generate stubs — all without leaving your feature file.",
-  "version": "0.9.36",
+  "description": "AI-powered BDD toolkit for VS Code. Generate scenarios from plain English, run & debug Cucumber tests with one click, catch quality issues before they ship. Supports Java, TypeScript, JavaScript, and Python.",
+  "version": "0.9.37",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -38,7 +38,12 @@
     "behave",
     "pytest-bdd",
     "step definitions",
-    "automation"
+    "automation",
+    "ai",
+    "copilot",
+    "code generation",
+    "natural language",
+    "debug"
   ],
   "activationEvents": [
     "workspaceContains:**/*.feature"
@@ -123,6 +128,11 @@
       {
         "command": "gherkinFlow.openReport",
         "title": "Open HTML Report (GherkinFlow)",
+        "category": "GherkinFlow"
+      },
+      {
+        "command": "gherkinFlow.generateFromNL",
+        "title": "Generate Scenarios from Description (GherkinFlow)",
         "category": "GherkinFlow"
       }
     ],

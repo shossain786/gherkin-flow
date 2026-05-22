@@ -16,6 +16,7 @@ import { ScenarioHistoryStore } from './scenarioHistoryStore';
 import { ImpactAnalyzer } from './impactAnalyzer';
 import { GherkinLinter } from './gherkinLinter';
 import { findHtmlReport } from './projectDetector';
+import { generateScenariosFromNL } from './aiFeatures';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -335,6 +336,12 @@ export async function activate(context: vscode.ExtensionContext) {
     (uri: vscode.Uri) => vscode.env.openExternal(uri)
   );
 
+  // AI: generate Gherkin scenarios from plain-English description
+  const generateFromNLCmd = vscode.commands.registerCommand(
+    'gherkinFlow.generateFromNL',
+    () => generateScenariosFromNL(stepIndex)
+  );
+
   // Stop the active run
   const stopRunCmd = vscode.commands.registerCommand(
     'gherkinFlow.stopRun',
@@ -455,6 +462,7 @@ export async function activate(context: vscode.ExtensionContext) {
     usageCodeLens,
     debugScenarioByName,
     openReportCmd,
+    generateFromNLCmd,
     dryRunCmd,
     watchScenarioCmd,
     showHistoryCmd,
