@@ -51,6 +51,7 @@ function stripFences(text: string): string {
 
 // ── Feature 1: Natural Language → Gherkin ────────────────────────────────
 
+
 export async function generateScenariosFromNL(
   index: StepDefinitionIndex
 ): Promise<void> {
@@ -148,6 +149,106 @@ export async function generateScenariosFromNL(
             doc.positionAt(doc.getText().length)
           );
           eb.replace(all, stripFences(accumulated));
+        });
+
+      } catch (err) {
+        if (err instanceof vscode.CancellationError) { return; }
+        vscode.window.showErrorMessage(`GherkinFlow AI error: ${err}`);
+      }
+    }
+  );
+}
+
+// ── Feature 2: AI Failure Analysis ───────────────────────────────────────
+
+export async function analyzeFailure(params: {
+  scenarioName: string;
+  stepText: string;
+  error: string;
+  stepDefCode?: string;
+}): Promise<void> {
+  const lm = getLM();
+  if (!lm) {
+    vscode.window.showErrorMessage(
+      'GherkinFlow AI requires VS Code 1.90+ with GitHub Copilot installed.'
+    );
+    return;
+  }
+
+  const model = await pickModel(lm);
+  if (!model) {
+    vscode.window.showErrorMessage(
+      'GherkinFlow AI: No language model available. Please install GitHub Copilot.'
+    );
+    return;
+  }
+
+  const stepDefSection = params.stepDefCode
+    ? `\nStep definition implementation:\n\`\`\`\n${params.stepDefCode}\n\`\`\``
+    : '';
+
+  const prompt = [
+    'A BDD test step failed. Explain what likely went wrong and how to fix it.',
+    '',
+    `Scenario: "${params.scenarioName}"`,
+    `Failed step: \`${params.stepText}\``,
+    stepDefSection,
+    '',
+    'Error message:',
+    '```',
+    params.error,
+    '```',
+    '',
+    'Respond using EXACTLY this structure (keep the headers):',
+    '',
+    '## What went wrong',
+    '(1–3 plain-English sentences — no jargon, no code)',
+    '',
+    '## Likely causes',
+    '(2–4 bullet points)',
+    '',
+    '## Suggested fix',
+    '(concrete actionable steps a developer can follow immediately)',
+  ].join('\n');
+
+  const doc       = await vscode.workspace.openTextDocument({ language: 'markdown', content: '' });
+  const outEditor = await vscode.window.showTextDocument(doc, { preview: false });
+
+  await vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: 'GherkinFlow AI: Analysing failure…',
+      cancellable: true,
+    },
+    async (_progress, token) => {
+      try {
+        const response = await model.sendRequest(
+          [userMsg(prompt)],
+          { justification: 'Analyse BDD test failure and suggest a fix' },
+          token
+        );
+
+        let accumulated = '';
+        for await (const chunk of response.text) {
+          accumulated += chunk;
+          await outEditor.edit(
+            eb => {
+              const all = new vscode.Range(
+                doc.positionAt(0),
+                doc.positionAt(doc.getText().length)
+              );
+              eb.replace(all, accumulated);
+            },
+            { undoStopBefore: false, undoStopAfter: false }
+          );
+        }
+
+        await outEditor.edit(eb => {
+          const all = new vscode.Range(
+            doc.positionAt(0),
+            doc.positionAt(doc.getText().length)
+          );
+          eb.replace(all, accumulated);
         });
 
       } catch (err) {

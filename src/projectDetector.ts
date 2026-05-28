@@ -199,9 +199,13 @@ function gradleConfig(projectRoot: string, exe: string): ProjectConfig {
   return {
     type: 'java-gradle',
     projectRoot,
-    buildScenarioArgs: (name, feat) => ({
+    buildScenarioArgs: (name, feat, line) => ({
       file: exe,
-      args: ['test', ...(feat ? [`-Pcucumber.features=${feat}`] : []), `-Pcucumber.filter.name=${safeFilter(name)}`],
+      args: [
+        'test',
+        ...(feat ? [`-Pcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
+        ...(line === undefined ? [`-Pcucumber.filter.name=${safeFilter(name)}`] : []),
+      ],
     }),
     buildFeatureArgs: (rel) => ({
       file: exe,
@@ -215,10 +219,15 @@ function gradleConfig(projectRoot: string, exe: string): ProjectConfig {
       file: exe,
       args: ['test', `-Pcucumber.features=${rel}`, '-Pcucumber.filter.dryRun=true'],
     }),
-    buildDebugScenarioArgs: (name, feat) => ({
+    buildDebugScenarioArgs: (name, feat, line) => ({
       // --debug-jvm suspends the JVM on port 5005 waiting for a debugger to attach.
       file: exe,
-      args: ['test', '--debug-jvm', ...(feat ? [`-Pcucumber.features=${feat}`] : []), `-Pcucumber.filter.name=${safeFilter(name)}`],
+      args: [
+        'test',
+        '--debug-jvm',
+        ...(feat ? [`-Pcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
+        ...(line === undefined ? [`-Pcucumber.filter.name=${safeFilter(name)}`] : []),
+      ],
     }),
     debugPort: 5005,
     debugType: 'java',
@@ -231,9 +240,13 @@ function mavenConfig(projectRoot: string, exe: string): ProjectConfig {
   return {
     type: 'java-maven',
     projectRoot,
-    buildScenarioArgs: (name, feat) => ({
+    buildScenarioArgs: (name, feat, line) => ({
       file: exe,
-      args: ['test', ...(feat ? [`-Dcucumber.features=${feat}`] : []), `-Dcucumber.filter.name=${safeFilter(name)}`],
+      args: [
+        'test',
+        ...(feat ? [`-Dcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
+        ...(line === undefined ? [`-Dcucumber.filter.name=${safeFilter(name)}`] : []),
+      ],
     }),
     buildFeatureArgs: (rel) => ({
       file: exe,
@@ -247,10 +260,15 @@ function mavenConfig(projectRoot: string, exe: string): ProjectConfig {
       file: exe,
       args: ['test', `-Dcucumber.features=${rel}`, '-Dcucumber.filter.dryRun=true'],
     }),
-    buildDebugScenarioArgs: (name, feat) => ({
+    buildDebugScenarioArgs: (name, feat, line) => ({
       // -Dmaven.surefire.debug suspends the JVM on port 5005 waiting for a debugger.
       file: exe,
-      args: ['test', '-Dmaven.surefire.debug', ...(feat ? [`-Dcucumber.features=${feat}`] : []), `-Dcucumber.filter.name=${safeFilter(name)}`],
+      args: [
+        'test',
+        '-Dmaven.surefire.debug',
+        ...(feat ? [`-Dcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
+        ...(line === undefined ? [`-Dcucumber.filter.name=${safeFilter(name)}`] : []),
+      ],
     }),
     debugPort: 5005,
     debugType: 'java',

@@ -138,6 +138,8 @@ export class GherkinTestController {
   // keyed featureUri → Map<itemId, TestItem> so partial runs merge instead of replace
   private readonly _failedScenarios = new Map<string, Map<string, vscode.TestItem>>();
   private readonly _lastStatus = new Map<string, 'passed' | 'failed'>();
+  // keyed "${uri.fsPath}::${scenarioName}" → failed step info for AI analysis
+  private readonly _failureDetails = new Map<string, { stepText: string; error: string }>();
   private readonly _onDidRunTests = new vscode.EventEmitter<vscode.Uri>();
   public  readonly onDidRunTests  = this._onDidRunTests.event;
   private readonly _onDidChangeRunning = new vscode.EventEmitter<boolean>();
@@ -196,6 +198,10 @@ export class GherkinTestController {
 
   public getFailedScenarios(uri: vscode.Uri): vscode.TestItem[] {
     return [...(this._failedScenarios.get(uri.fsPath)?.values() ?? [])];
+  }
+
+  public getFailureDetail(uri: vscode.Uri, scenarioName: string): { stepText: string; error: string } | undefined {
+    return this._failureDetails.get(`${uri.fsPath}::${scenarioName}`);
   }
 
   public async runItems(items: vscode.TestItem[]): Promise<void> {
@@ -570,6 +576,21 @@ export class GherkinTestController {
     else                             { run.skipped(stepItem); }
   }
 
+  private _updateLiveStatus(
+    liveStatus: Map<string, 'passed' | 'failed' | 'skipped'>,
+    result: LiveStepResult
+  ): void {
+    const prev = liveStatus.get(result.scenarioName);
+    if (prev === 'failed') { return; }
+    if (result.status === 'failed') {
+      liveStatus.set(result.scenarioName, 'failed');
+    } else if (result.status === 'passed') {
+      liveStatus.set(result.scenarioName, 'passed');
+    } else if (prev === undefined) {
+      liveStatus.set(result.scenarioName, 'skipped');
+    }
+  }
+
   private async _execute(
     run: vscode.TestRun,
     item: vscode.TestItem,
@@ -589,6 +610,7 @@ export class GherkinTestController {
       delete spawnEnv.ELECTRON_RUN_AS_NODE;
       const proc    = spawn(cmdStr, [], { cwd, shell: true, env: spawnEnv });
       const liveMap = this._buildLiveMap(item);
+      const liveStatus = new Map<string, 'passed' | 'failed' | 'skipped'>();
       const parser  = new LiveOutputParser();
       token.onCancellationRequested(() => { proc.kill('SIGTERM'); resolve(); });
       proc.on('error', (err) => {
@@ -598,7 +620,10 @@ export class GherkinTestController {
       proc.stdout?.on('data', (c: Buffer) => {
         const text = c.toString();
         run.appendOutput(text.replace(/\r?\n/g, '\r\n'));
-        for (const r of parser.processChunk(text)) { this._applyLiveResult(run, liveMap, r); }
+        for (const r of parser.processChunk(text)) {
+          this._updateLiveStatus(liveStatus, r);
+          this._applyLiveResult(run, liveMap, r);
+        }
       });
       proc.stderr?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
       proc.on('close', () => {
@@ -610,7 +635,7 @@ export class GherkinTestController {
           );
         }
         const failures: vscode.TestItem[] = [];
-        this._applyResults(run, item, report, failures);
+        this._applyResults(run, item, report, failures, liveStatus);
         if (item.uri) {
           // Merge this run's results into the persistent failure map so that
           // running a single scenario doesn't wipe failures from other scenarios.
@@ -704,20 +729,26 @@ export class GherkinTestController {
     });
   }
 
-  private _applyResults(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
+  private _applyResults(
+    run: vscode.TestRun,
+    item: vscode.TestItem,
+    report: ParsedReport,
+    failures: vscode.TestItem[],
+    liveStatus: Map<string, 'passed' | 'failed' | 'skipped'> = new Map()
+  ): void {
     switch (itemLevel(item)) {
       case 'feature':
         item.children.forEach(child => {
-          if (itemLevel(child) === 'outline') { this._applyOutline(run, child, report, failures); }
-          else                                { this._applyScenario(run, child, report, failures); }
+          if (itemLevel(child) === 'outline') { this._applyOutline(run, child, report, failures, liveStatus); }
+          else                                { this._applyScenario(run, child, report, failures, liveStatus); }
         });
         break;
       case 'outline':
-        this._applyOutline(run, item, report, failures);
+        this._applyOutline(run, item, report, failures, liveStatus);
         break;
       case 'example':
       case 'scenario':
-        this._applyScenario(run, item, report, failures);
+        this._applyScenario(run, item, report, failures, liveStatus);
         break;
     }
   }
@@ -727,12 +758,18 @@ export class GherkinTestController {
     return featureItem ? `${featureItem.label}::${item.label}` : item.label;
   }
 
-  private _applyOutline(run: vscode.TestRun, outlineItem: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
+  private _applyOutline(
+    run: vscode.TestRun,
+    outlineItem: vscode.TestItem,
+    report: ParsedReport,
+    failures: vscode.TestItem[],
+    liveStatus: Map<string, 'passed' | 'failed' | 'skipped'>
+  ): void {
     let failed = false;
     let totalMs = 0;
 
     outlineItem.children.forEach(exampleItem => {
-      this._applyScenario(run, exampleItem, report, failures);
+      this._applyScenario(run, exampleItem, report, failures, liveStatus);
       const parsed = report.scenarios.get(this._reportKey(exampleItem));
       if (parsed) {
         totalMs += parsed.durationMs;
@@ -747,9 +784,37 @@ export class GherkinTestController {
     }
   }
 
-  private _applyScenario(run: vscode.TestRun, item: vscode.TestItem, report: ParsedReport, failures: vscode.TestItem[]): void {
+  private _applyScenario(
+    run: vscode.TestRun,
+    item: vscode.TestItem,
+    report: ParsedReport,
+    failures: vscode.TestItem[],
+    liveStatus: Map<string, 'passed' | 'failed' | 'skipped'>
+  ): void {
     const parsed = report.scenarios.get(this._reportKey(item));
-    if (!parsed) { run.skipped(item); item.children.forEach(c => run.skipped(c)); return; }
+    if (!parsed) {
+      const fallback = liveStatus.get(item.label);
+      if (fallback === 'passed') {
+        run.passed(item);
+        if (item.uri) {
+          this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'passed');
+          this._history.record(item.uri, item.label, 'passed', 0);
+        }
+        return;
+      }
+      if (fallback === 'failed') {
+        run.failed(item, new vscode.TestMessage('One or more steps failed'), undefined);
+        failures.push(item);
+        if (item.uri) {
+          this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'failed');
+          this._history.record(item.uri, item.label, 'failed', 0);
+        }
+        return;
+      }
+      run.skipped(item);
+      item.children.forEach(c => run.skipped(c));
+      return;
+    }
 
     const stepItems: vscode.TestItem[] = [];
     item.children.forEach(c => stepItems.push(c));
@@ -784,6 +849,7 @@ export class GherkinTestController {
       if (item.uri) {
         this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'passed');
         this._history.record(item.uri, item.label, 'passed', parsed.durationMs);
+        this._failureDetails.delete(`${item.uri.fsPath}::${item.label}`);
       }
     } else if (parsed.overallStatus === 'failed') {
       const msg = new vscode.TestMessage(buildFailureMessage(parsed));
@@ -793,6 +859,13 @@ export class GherkinTestController {
       if (item.uri) {
         this._lastStatus.set(`${item.uri.fsPath}::${item.label}`, 'failed');
         this._history.record(item.uri, item.label, 'failed', parsed.durationMs);
+        const failedStep = parsed.steps.find(s => s.status === 'failed');
+        if (failedStep) {
+          this._failureDetails.set(`${item.uri.fsPath}::${item.label}`, {
+            stepText: `${failedStep.keyword} ${failedStep.name}`,
+            error: failedStep.errorMessage ?? 'Step failed',
+          });
+        }
       }
     } else {
       run.skipped(item);

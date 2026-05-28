@@ -3,8 +3,8 @@ import * as vscode from 'vscode';
 const STEP_RE = /^\s*(Given|When|Then|And|But|\*)\s+(.*)/i;
 const ANNOTATION_RE_JAVA = /@(?:Given|When|Then|And|But)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
 const ANNOTATION_RE_NODE_STR = /(?:@(?:Given|When|Then|And|But)\s*\(|(?:^|[^.\w])(?:Given|When|Then|And|But)\s*\()\s*(['"`])((?:[^'"`\\]|\\.)*)\1/gm;
-const ANNOTATION_RE_NODE_RE  = /(?:@(?:Given|When|Then|And|But)\s*\(|(?:^|[^.\w])(?:Given|When|Then|And|But)\s*\()\s*\/([^/]+)\//gm;
-// Matches: @given('pattern') / @when(u"pattern") / @then(r'regex')
+const ANNOTATION_RE_NODE_RE  = /(?:@(?:Given|When|Then|And|But)\s*\(|(?:^|[^.\w])(?:Given|When|Then|And|But)\s*\()\s*\/((?:\\.|[^\\/])+)\/([gimsuy]*)/gm;
+// Matches: @given('pattern') / @when(u"pattern") / @then(r'regex') / Given(/regex/)
 const ANNOTATION_RE_PYTHON = /@(?:given|when|then|step)\s*\(\s*[uUrR]?(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/gim;
 
 interface StepDefinition {

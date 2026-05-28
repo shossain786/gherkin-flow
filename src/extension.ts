@@ -16,7 +16,7 @@ import { ScenarioHistoryStore } from './scenarioHistoryStore';
 import { ImpactAnalyzer } from './impactAnalyzer';
 import { GherkinLinter } from './gherkinLinter';
 import { findHtmlReport } from './projectDetector';
-import { generateScenariosFromNL } from './aiFeatures';
+import { generateScenariosFromNL, analyzeFailure } from './aiFeatures';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -171,6 +171,11 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
                 command: 'gherkinFlow.runScenarioByName',
                 arguments: [expandedName, document.uri]
               }));
+              lenses.push(new vscode.CodeLens(range, {
+                title: '💡 Explain Failure',
+                command: 'gherkinFlow.analyzeFailure',
+                arguments: [expandedName, document.uri]
+              }));
             }
           }
           continue;
@@ -205,6 +210,11 @@ class GherkinFlowCodeLensProvider implements vscode.CodeLensProvider {
           lenses.push(new vscode.CodeLens(range, {
             title: '🔄 Re-run',
             command: 'gherkinFlow.runScenarioByName',
+            arguments: [scenarioName, document.uri]
+          }));
+          lenses.push(new vscode.CodeLens(range, {
+            title: '💡 Explain Failure',
+            command: 'gherkinFlow.analyzeFailure',
             arguments: [scenarioName, document.uri]
           }));
         }
@@ -342,6 +352,33 @@ export async function activate(context: vscode.ExtensionContext) {
     () => generateScenariosFromNL(stepIndex)
   );
 
+  // AI: explain why a scenario failed and suggest a fix
+  const analyzeFailureCmd = vscode.commands.registerCommand(
+    'gherkinFlow.analyzeFailure',
+    async (scenarioName: string, uri: vscode.Uri) => {
+      const detail = controller.getFailureDetail(uri, scenarioName);
+      if (!detail) {
+        vscode.window.showWarningMessage('GherkinFlow: No failure details found — run the scenario first.');
+        return;
+      }
+
+      // Strip the keyword prefix so stepIndex.findDef() can match the step text
+      const stepBody = detail.stepText.replace(/^\s*(Given|When|Then|And|But|\*)\s+/i, '');
+      let stepDefCode: string | undefined;
+      const def = stepIndex.findDef(stepBody);
+      if (def?.location) {
+        try {
+          const bytes = await vscode.workspace.fs.readFile(def.location.uri);
+          const lines = Buffer.from(bytes).toString('utf8').split('\n');
+          const defLine = def.location.range.start.line;
+          stepDefCode = lines.slice(Math.max(0, defLine - 1), defLine + 12).join('\n');
+        } catch { /* skip — analysis still works without the implementation */ }
+      }
+
+      await analyzeFailure({ scenarioName, ...detail, stepDefCode });
+    }
+  );
+
   // Stop the active run
   const stopRunCmd = vscode.commands.registerCommand(
     'gherkinFlow.stopRun',
@@ -463,6 +500,7 @@ export async function activate(context: vscode.ExtensionContext) {
     debugScenarioByName,
     openReportCmd,
     generateFromNLCmd,
+    analyzeFailureCmd,
     dryRunCmd,
     watchScenarioCmd,
     showHistoryCmd,
