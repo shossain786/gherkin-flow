@@ -4,6 +4,9 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.40
+**Generate CI Workflow** — Command palette → `GherkinFlow: Generate CI Workflow`. Scaffolds a ready-to-commit pipeline file for GitHub Actions, GitLab CI, or a Jenkinsfile, pre-filled with the runtime setup, install/test commands, working directory, and report-artifact path for your detected stack (Java/Maven, Java/Gradle, cucumber-js, or Behave) — including the correct subdirectory for monorepos. Prompts before overwriting an existing pipeline file.
+
 ### 0.9.39
 **AI: Explain Failure** — a `💡 Explain Failure` CodeLens appears above any scenario (and Scenario Outline example row) that failed on its last run. Clicking it sends the failed step, the full error message, and the matched step definition source to GitHub Copilot, which streams a structured explanation into a new Markdown document: *What went wrong*, *Likely causes*, and *Suggested fix*. Requires VS Code 1.90+ with GitHub Copilot installed; all other features work without it.
 

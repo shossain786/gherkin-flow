@@ -2,7 +2,7 @@
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
   "description": "AI-powered BDD toolkit for VS Code. Generate scenarios from plain English, run & debug Cucumber tests with one click, catch quality issues before they ship. Supports Java, TypeScript, JavaScript, and Python.",
-  "version": "0.9.39",
+  "version": "0.9.40",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -133,6 +133,11 @@
       {
         "command": "gherkinFlow.generateFromNL",
         "title": "Generate Scenarios from Description (GherkinFlow)",
+        "category": "GherkinFlow"
+      },
+      {
+        "command": "gherkinFlow.generateCIWorkflow",
+        "title": "Generate CI Workflow (GherkinFlow)",
         "category": "GherkinFlow"
       }
     ],

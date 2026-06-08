@@ -85,6 +85,7 @@ That's not a test workflow. That's a context-switch tax — plus a quality probl
 | Dead step definitions accumulate silently | **Usage heatmap** flags unused steps instantly |
 | Save a step file, wonder what broke | **Impact finder** shows affected scenarios instantly |
 | Switch to browser to check the HTML report | **Open Report** launches it from the Feature line |
+| Hand-write CI pipeline YAML and guess at paths | **Generate CI Workflow** scaffolds GitHub Actions / GitLab CI / Jenkinsfile from your detected stack |
 
 ---
 
@@ -195,6 +196,22 @@ $(references) Used in 5 steps
 ```
 
 `$(warning) Unused step` flags definitions that no feature file references — helping you find dead code before it accumulates.
+
+### 🚀 Generate CI Workflow
+Command palette → `GherkinFlow: Generate CI Workflow`. Pick **GitHub Actions**, **GitLab CI**, or a **Jenkinsfile** and GherkinFlow scaffolds a ready-to-commit pipeline using the same stack detection that powers local runs — correct runtime setup, install/test commands, working directory (including monorepo subdirectories), and the report file wired up as a build artifact:
+
+```yaml
+- name: Run Cucumber tests
+  working-directory: services/checkout
+  run: mvn test
+
+- name: Upload Cucumber report
+  uses: actions/upload-artifact@v4
+  with:
+    path: services/checkout/target/cucumber-report.json
+```
+
+You'll be prompted before anything overwrites an existing pipeline file.
 
 ### 🔧 Zero-Config Build Detection
 Automatically detects your build tool — no configuration file needed:

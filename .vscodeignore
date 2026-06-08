@@ -1,7 +1,10 @@
 src/**
 tsconfig.json
 .gitignore
-*.map
+**/*.map
 node_modules/**
 .vscode/**
+.claude/**
 images/*.svg
+FUTURE_PLAN.md
+IMPROVEMENTS.md

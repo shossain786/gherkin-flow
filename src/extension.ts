@@ -17,6 +17,7 @@ import { ImpactAnalyzer } from './impactAnalyzer';
 import { GherkinLinter } from './gherkinLinter';
 import { findHtmlReport } from './projectDetector';
 import { generateScenariosFromNL, analyzeFailure } from './aiFeatures';
+import { generateCIWorkflow } from './ciWorkflowGenerator';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -352,6 +353,12 @@ export async function activate(context: vscode.ExtensionContext) {
     () => generateScenariosFromNL(stepIndex)
   );
 
+  // Scaffold a CI pipeline (GitHub Actions / GitLab CI / Jenkinsfile) for the detected stack
+  const generateCIWorkflowCmd = vscode.commands.registerCommand(
+    'gherkinFlow.generateCIWorkflow',
+    () => generateCIWorkflow(controller)
+  );
+
   // AI: explain why a scenario failed and suggest a fix
   const analyzeFailureCmd = vscode.commands.registerCommand(
     'gherkinFlow.analyzeFailure',
@@ -500,6 +507,7 @@ export async function activate(context: vscode.ExtensionContext) {
     debugScenarioByName,
     openReportCmd,
     generateFromNLCmd,
+    generateCIWorkflowCmd,
     analyzeFailureCmd,
     dryRunCmd,
     watchScenarioCmd,
