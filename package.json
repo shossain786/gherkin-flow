@@ -2,7 +2,7 @@
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
   "description": "AI-powered BDD toolkit for VS Code. Generate scenarios from plain English, run & debug Cucumber tests with one click, catch quality issues before they ship. Supports Java, TypeScript, JavaScript, and Python.",
-  "version": "0.9.40",
+  "version": "0.9.41",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {
@@ -141,6 +141,20 @@
         "category": "GherkinFlow"
       }
     ],
+    "configuration": {
+      "title": "GherkinFlow",
+      "properties": {
+        "gherkinflow.lint.disable": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["GF001","GF002","GF003","GF004","GF005","GF006","GF007","GF008","GF009","GF010","GF011"]
+          },
+          "default": [],
+          "markdownDescription": "Suppress specific GherkinFlow linter rules by code. Example: `[\"GF006\", \"GF007\"]` disables the UI-detail and jargon hints.\n\n| Code | Rule |\n|------|------|\n| GF001 | Duplicate scenario name |\n| GF002 | Scenario Outline with one example row |\n| GF003 | Scenario with no Then step |\n| GF004 | Scenario with no When step |\n| GF005 | Scenario with more than 8 steps |\n| GF006 | UI implementation detail in step text |\n| GF007 | Developer jargon in step text |\n| GF008 | Feature with no scenarios |\n| GF009 | Background with more than 4 steps |\n| GF010 | Hardcoded value repeated across 3+ scenarios |\n| GF011 | And/But as the first step in a scenario |"
+        }
+      }
+    },
     "menus": {
       "editor/context": [
         {

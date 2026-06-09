@@ -4,6 +4,15 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.41
+**Linter rules GF008–GF011 + configurable disable** — four new quality rules:
+- **GF008** *(warning)*: Feature file with no runnable scenarios
+- **GF009** *(warning)*: Background with more than 4 steps (shared setup anti-pattern)
+- **GF010** *(hint)*: Same quoted string literal repeated in 3+ scenarios — suggests a Scenario Outline
+- **GF011** *(error)*: `And`/`But` as the very first step in a scenario (no Given/When/Then opener)
+
+Adds `gherkinflow.lint.disable` setting (array of rule codes) to suppress any rule per project — e.g. `["GF006","GF007"]` silences the UI-detail and jargon hints for teams that intentionally write implementation-level steps. The disable filter also applies to all pre-existing rules (GF001–GF007). Settings changes are picked up live without reloading.
+
 ### 0.9.40
 **Generate CI Workflow** — Command palette → `GherkinFlow: Generate CI Workflow`. Scaffolds a ready-to-commit pipeline file for GitHub Actions, GitLab CI, or a Jenkinsfile, pre-filled with the runtime setup, install/test commands, working directory, and report-artifact path for your detected stack (Java/Maven, Java/Gradle, cucumber-js, or Behave) — including the correct subdirectory for monorepos. Prompts before overwriting an existing pipeline file.
 

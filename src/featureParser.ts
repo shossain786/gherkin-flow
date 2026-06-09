@@ -21,6 +21,7 @@ export interface ParsedFeature {
   line: number;
   uri: vscode.Uri;
   scenarios: FeatureScenario[];
+  backgroundSteps: FeatureStep[];
 }
 
 const FEATURE_RE    = /^\s*Feature:\s*(.*)/i;
@@ -60,7 +61,7 @@ export function parseFeatureFile(document: vscode.TextDocument): ParsedFeature |
     // Feature
     const featureMatch = text.match(FEATURE_RE);
     if (featureMatch) {
-      feature = { name: featureMatch[1].trim(), line: i, uri: document.uri, scenarios: [] };
+      feature = { name: featureMatch[1].trim(), line: i, uri: document.uri, scenarios: [], backgroundSteps: [] };
       pendingTags = [];
       inBackground = false;
       inExamples = false;
@@ -164,5 +165,6 @@ export function parseFeatureFile(document: vscode.TextDocument): ParsedFeature |
     }
   }
 
+  if (feature) { feature.backgroundSteps = backgroundSteps; }
   return feature;
 }
