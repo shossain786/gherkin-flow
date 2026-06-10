@@ -4,6 +4,9 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.44
+**New extension icon** — refreshed branding with a redesigned logo: a cucumber medallion paired with a checkmark badge on a dark rounded-square background, used for the Marketplace listing and `.feature` file icon.
+
 ### 0.9.43
 **Auto-indent while typing** — pressing Enter after `Feature:`/`Rule:`/`Background:`/`Scenario(:Outline):`/`Examples:` now indents the next line one level deeper, while step lines, table rows, and tag lines keep the same indentation for the line that follows. Adds `editor.tabSize: 2` / `insertSpaces: true` / `detectIndentation: false` defaults for `.feature` files so indentation matches the existing formatter's 0/2/4/6 convention.
 
