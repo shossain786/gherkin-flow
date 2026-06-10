@@ -4,6 +4,13 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.43
+**Auto-indent while typing** — pressing Enter after `Feature:`/`Rule:`/`Background:`/`Scenario(:Outline):`/`Examples:` now indents the next line one level deeper, while step lines, table rows, and tag lines keep the same indentation for the line that follows. Adds `editor.tabSize: 2` / `insertSpaces: true` / `detectIndentation: false` defaults for `.feature` files so indentation matches the existing formatter's 0/2/4/6 convention.
+
+**Gherkin keyword completions** — typing `Fea`, `Sc`, `Giv`, etc. now suggests `Feature:`, `Scenario:`, `Scenario Outline:`, `Background:`, `Examples:`, `Given `, `When `, `Then `, `And `, `But `.
+
+**Fix: step suggestions duplicated typed text** — accepting a suggested step definition now replaces the text you'd already typed instead of appending the suggestion after it (e.g. typing `Given I` and accepting `I perform an action` previously produced `Given I I perform an action`).
+
 ### 0.9.42
 **Fix: syntax highlighting was completely broken** — `syntaxes/gherkin.tmLanguage.json` contained an invalid JSON escape sequence (`\`` before backticks) in the docstring patterns. This caused the entire Gherkin grammar to fail to load, so `.feature` files rendered as plain text with no highlighting at all (Feature/Scenario/Given/When/Then keywords, tags, strings, tables — none of it). Fixed by removing the unnecessary escapes around the ` ``` ` docstring delimiter.
 

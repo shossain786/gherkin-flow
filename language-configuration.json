@@ -13,5 +13,27 @@
     { "open": "'", "close": "'" },
     { "open": "<", "close": ">" },
     { "open": "\"\"\"", "close": "\"\"\"" }
+  ],
+  "onEnterRules": [
+    {
+      "beforeText": "^\\s*(Feature|Rule)\\s*:.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "^\\s*(Background|Scenario(?:\\s+Outline)?|Examples?|Scenarios)\\s*:.*$",
+      "action": { "indent": "indent" }
+    },
+    {
+      "beforeText": "^\\s*(Given|When|Then|And|But|\\*)\\s.*$",
+      "action": { "indent": "none" }
+    },
+    {
+      "beforeText": "^\\s*\\|.*$",
+      "action": { "indent": "none" }
+    },
+    {
+      "beforeText": "^\\s*@\\S.*$",
+      "action": { "indent": "none" }
+    }
   ]
 }
