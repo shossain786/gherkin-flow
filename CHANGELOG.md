@@ -4,6 +4,11 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.42
+**Fix: syntax highlighting was completely broken** — `syntaxes/gherkin.tmLanguage.json` contained an invalid JSON escape sequence (`\`` before backticks) in the docstring patterns. This caused the entire Gherkin grammar to fail to load, so `.feature` files rendered as plain text with no highlighting at all (Feature/Scenario/Given/When/Then keywords, tags, strings, tables — none of it). Fixed by removing the unnecessary escapes around the ` ``` ` docstring delimiter.
+
+**Added a file icon for `.feature` files** — the `gherkin` language now contributes its own icon (shown in the Explorer and editor tabs), so `.feature` files display the GherkinFlow icon instead of falling back to a generic file icon.
+
 ### 0.9.41
 **Linter rules GF008–GF011 + configurable disable** — four new quality rules:
 - **GF008** *(warning)*: Feature file with no runnable scenarios

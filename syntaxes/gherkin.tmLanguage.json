@@ -92,8 +92,8 @@
       "name": "variable.parameter.gherkin"
     },
     "docstring": {
-      "begin": "^(\\s*)(\"\"\"|\`\`\`)",
-      "end": "^(\\s*)(\"\"\"|\`\`\`)",
+      "begin": "^(\\s*)(\"\"\"|```)",
+      "end": "^(\\s*)(\"\"\"|```)",
       "beginCaptures": {
         "2": { "name": "punctuation.definition.string.gherkin" }
       },
