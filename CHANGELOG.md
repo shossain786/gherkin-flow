@@ -4,6 +4,11 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.45
+**AI step implementation** — "⚡ Generate step definition" now fills the method body with a real implementation instead of `// TODO: implement`. When GitHub Copilot is available, GherkinFlow sends the step text, keyword, method signature, and up to 15 of your existing step patterns to the language model, which returns idiomatic automation code (Selenium WebDriver, Playwright, or REST patterns depending on language). The result is injected with correct indentation into the generated stub. Falls back to the previous `// TODO: implement` + `throw PendingException()` behavior when Copilot is not installed — no UX change for users without AI.
+
+---
+
 ### 0.9.44
 **New extension icon** — refreshed branding with a redesigned logo: a cucumber medallion paired with a checkmark badge on a dark rounded-square background, used for the Marketplace listing and `.feature` file icon.
 

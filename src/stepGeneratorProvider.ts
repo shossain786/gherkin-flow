@@ -5,6 +5,7 @@ import { parseFeatureFile } from './featureParser';
 import { StepDefinitionIndex } from './stepDefinitionProvider';
 import { ProjectConfig } from './projectDetector';
 import { findSimilarSteps, fillPattern } from './stepSuggester';
+import { generateStepImpl } from './aiFeatures';
 
 export interface MissingStep {
   keyword: string;
@@ -123,6 +124,37 @@ function normaliseKeyword(kw: string): string {
   return k;
 }
 
+function extractSignature(stub: string, ext: string): string {
+  if (ext === 'java') {
+    const m = stub.match(/public void (\w+\([^)]*\))/);
+    return m ? m[1] : '';
+  }
+  if (ext === 'py') {
+    const m = stub.match(/def (\w+\([^)]*\))/);
+    return m ? m[1] : '';
+  }
+  const m = stub.match(/function\s*\(([^)]*)\)/);
+  return m ? `function(${m[1]})` : '';
+}
+
+function injectImpl(stub: string, impl: string, ext: string): string {
+  const indent = ext === 'java' ? '        ' : '    ';
+  const indented = impl.split('\n').map(l => l.trim() ? indent + l : '').join('\n');
+  if (ext === 'java') {
+    return stub.replace(
+      '        // TODO: implement\n        throw new io.cucumber.java.PendingException();',
+      indented
+    );
+  }
+  if (ext === 'py') {
+    return stub.replace(
+      /    # TODO: implement\n    raise NotImplementedError\([^\n]*\)/,
+      indented
+    );
+  }
+  return stub.replace('    // TODO: implement', indented);
+}
+
 function generateStub(step: MissingStep, ext: string): string {
   const pattern = textToPattern(step.text);
   const methodName = patternToMethodName(pattern);
@@ -238,6 +270,40 @@ function createNewFile(filePath: string, stubs: string[], ext: string): void {
   fs.writeFileSync(filePath, content, 'utf8');
 }
 
+// --- AI-enhanced stub builder ---
+
+async function buildStubs(
+  missing: MissingStep[],
+  ext: string,
+  index: StepDefinitionIndex
+): Promise<string[]> {
+  const rawStubs = missing.map(s => generateStub(s, ext));
+  const aiAvailable = 'lm' in vscode;
+  if (!aiAvailable) { return rawStubs; }
+
+  return vscode.window.withProgress(
+    {
+      location: vscode.ProgressLocation.Notification,
+      title: `GherkinFlow: Generating ${missing.length === 1 ? 'implementation' : `${missing.length} implementations`}…`,
+      cancellable: false,
+    },
+    async () => {
+      const patterns = index.getAllPatterns().slice(0, 15);
+      return Promise.all(rawStubs.map(async (stub, i) => {
+        const step = missing[i];
+        const impl = await generateStepImpl({
+          keyword: step.keyword,
+          stepText: step.text,
+          methodSignature: extractSignature(stub, ext),
+          language: ext as 'java' | 'ts' | 'js' | 'py',
+          patterns,
+        });
+        return impl ? injectImpl(stub, impl, ext) : stub;
+      }));
+    }
+  );
+}
+
 // --- Command handler ---
 
 export async function executeGenerateSteps(
@@ -288,11 +354,11 @@ export async function executeGenerateSteps(
     if (!input) { return; }
     targetPath = path.join(wsRoot, input);
     ext = path.extname(targetPath).slice(1).toLowerCase() || (config.type === 'node' ? 'ts' : 'java');
-    createNewFile(targetPath, missing.map(s => generateStub(s, ext)), ext);
+    createNewFile(targetPath, await buildStubs(missing, ext, index), ext);
   } else {
     targetPath = picked.filePath;
     ext = path.extname(targetPath).slice(1).toLowerCase();
-    await appendToFile(targetPath, missing.map(s => generateStub(s, ext)), ext);
+    await appendToFile(targetPath, await buildStubs(missing, ext, index), ext);
   }
 
   const doc = await vscode.workspace.openTextDocument(targetPath);

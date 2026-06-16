@@ -159,6 +159,61 @@ export async function generateScenariosFromNL(
   );
 }
 
+// ── Feature 3: AI Step Implementation ────────────────────────────────────
+
+export async function generateStepImpl(params: {
+  keyword: string;
+  stepText: string;
+  methodSignature: string;
+  language: 'java' | 'ts' | 'js' | 'py';
+  patterns?: string[];
+}): Promise<string | null> {
+  const lm = getLM();
+  if (!lm) { return null; }
+
+  const model = await pickModel(lm);
+  if (!model) { return null; }
+
+  const langLabel: Record<string, string> = {
+    java: 'Java (Cucumber JVM + Selenium WebDriver)',
+    ts:   'TypeScript (cucumber-js)',
+    js:   'JavaScript (cucumber-js)',
+    py:   'Python (Behave)',
+  };
+
+  const patternsNote = params.patterns?.length
+    ? `\nExisting step patterns in this project (use for context on the automation style):\n${params.patterns.slice(0, 15).map(p => `- ${p}`).join('\n')}`
+    : '';
+
+  const prompt = [
+    `You are writing a BDD automation step definition.`,
+    `Language: ${langLabel[params.language] ?? params.language}`,
+    `Step: ${params.keyword} ${params.stepText}`,
+    `Signature: ${params.methodSignature}`,
+    patternsNote,
+    ``,
+    `Write ONLY the method body — the code that goes inside the function, not the declaration or annotations.`,
+    `Use idiomatic automation patterns (Selenium WebDriver, Playwright, or REST calls as appropriate).`,
+    `No explanation. No markdown fences. Just the implementation code.`,
+  ].join('\n');
+
+  const cts = new vscode.CancellationTokenSource();
+  try {
+    const response = await model.sendRequest(
+      [userMsg(prompt)],
+      { justification: 'Generate BDD step definition implementation body' },
+      cts.token
+    );
+    let result = '';
+    for await (const chunk of response.text) { result += chunk; }
+    return stripFences(result).trim() || null;
+  } catch {
+    return null;
+  } finally {
+    cts.dispose();
+  }
+}
+
 // ── Feature 2: AI Failure Analysis ───────────────────────────────────────
 
 export async function analyzeFailure(params: {
