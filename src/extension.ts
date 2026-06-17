@@ -18,6 +18,7 @@ import { GherkinLinter } from './gherkinLinter';
 import { findHtmlReport } from './projectDetector';
 import { generateScenariosFromNL, analyzeFailure } from './aiFeatures';
 import { generateCIWorkflow } from './ciWorkflowGenerator';
+import { ExtractToBackgroundProvider, executeExtractToBackground, RenameStepProvider, executeRenameStep } from './refactoringProvider';
 
 const SCENARIO_REGEX  = /^\s*(Scenario(?: Outline)?):\s*(.*)$/i;
 const FEATURE_REGEX   = /^\s*Feature:\s*(.*)$/i;
@@ -469,6 +470,28 @@ export async function activate(context: vscode.ExtensionContext) {
     { providedCodeActionKinds: StepGeneratorProvider.providedCodeActionKinds }
   );
 
+  const extractToBackgroundProvider = vscode.languages.registerCodeActionsProvider(
+    { pattern: '**/*.feature' },
+    new ExtractToBackgroundProvider(),
+    { providedCodeActionKinds: ExtractToBackgroundProvider.providedCodeActionKinds }
+  );
+
+  const renameStepProvider = vscode.languages.registerCodeActionsProvider(
+    { pattern: '**/*.feature' },
+    new RenameStepProvider(stepIndex),
+    { providedCodeActionKinds: RenameStepProvider.providedCodeActionKinds }
+  );
+
+  const extractToBackgroundCmd = vscode.commands.registerCommand(
+    'gherkinFlow.extractToBackground',
+    (uri: vscode.Uri, stepLines: number[]) => executeExtractToBackground(uri, stepLines)
+  );
+
+  const renameStepCmd = vscode.commands.registerCommand(
+    'gherkinFlow.renameStep',
+    (uri: vscode.Uri, lineNumber: number) => executeRenameStep(uri, lineNumber, stepIndex)
+  );
+
   const formattingProvider = vscode.languages.registerDocumentFormattingEditProvider(
     { pattern: '**/*.feature' },
     new GherkinFormattingProvider()
@@ -504,6 +527,10 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(
     tagsView,
     usageCodeLens,
+    extractToBackgroundProvider,
+    renameStepProvider,
+    extractToBackgroundCmd,
+    renameStepCmd,
     debugScenarioByName,
     openReportCmd,
     generateFromNLCmd,

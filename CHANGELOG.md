@@ -4,6 +4,15 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.46
+**Refactoring actions** — two new code actions available via the lightbulb (💡) on any step line in a `.feature` file:
+
+- **⬆ Extract to Background** — select one or more step lines inside a Scenario and choose this action to move them into a `Background:` block. If no Background exists, one is created before the first scenario; if one already exists, the steps are appended to it. Works on any number of selected steps at once.
+
+- **✏ Rename step definition** — place the cursor on any step that has a matched definition and choose this action. An input box opens pre-filled with the current pattern. Edit it (preserving `{string}`, `{int}`, `{float}` slots as needed) and confirm. GherkinFlow updates the annotation in the step definition file and rewrites every matching step across all `.feature` files in the workspace, preserving the argument values from the original step text.
+
+---
+
 ### 0.9.45
 **AI step implementation** — "⚡ Generate step definition" now fills the method body with a real implementation instead of `// TODO: implement`. When GitHub Copilot is available, GherkinFlow sends the step text, keyword, method signature, and up to 15 of your existing step patterns to the language model, which returns idiomatic automation code (Selenium WebDriver, Playwright, or REST patterns depending on language). The result is injected with correct indentation into the generated stub. Falls back to the previous `// TODO: implement` + `throw PendingException()` behavior when Copilot is not installed — no UX change for users without AI.
 
