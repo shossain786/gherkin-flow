@@ -8,3 +8,7 @@ node_modules/**
 images/*.svg
 FUTURE_PLAN.md
 IMPROVEMENTS.md
+MARKETING.md
+REVIEW_REQUEST.md
+.mcp.json
+*.vsix
