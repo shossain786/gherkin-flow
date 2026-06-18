@@ -69,3 +69,13 @@
 - [x] **Tags sidebar** — tree view showing all tags across the workspace with pass/fail counts from the last run: `@smoke (12 passed, 1 failed)`.
 
 - [x] **Multi-root / monorepo support** — detect build tool per feature file by walking up the directory tree, not just from `workspaceFolders[0]`.
+
+---
+
+## Audit Round 2 — Bugs Found and Fixed (2026-06-18)
+
+- [x] **`_applyInlineDecorations` always missed scenario in report map** — `report.scenarios` is keyed `featureName::scenarioName` (set by `reportParser.ts`) but `_applyInlineDecorations` looked up by `scenarioItem.label` (scenario name alone). Result: the red ghost-text error decoration never appeared on failed step lines. Fixed by using `this._reportKey(scenarioItem)` — the same helper `_applyScenario` already used.
+
+- [x] **`_applyInlineDecorations` missing background-step offset** — `_applyScenario` applies a `bgOffset = max(0, stepItems.length − parsed.steps.length)` correction when reporters omit background steps from scenario elements, but `_applyInlineDecorations` iterated `parsed.steps[idx]` without any offset. When `bgOffset > 0` (e.g., Cucumber JVM with background omitted from scenario elements), decorations landed on the wrong step lines. Fixed by applying the same offset logic.
+
+- [x] **`_configCache` never invalidated when project structure changes** — `ProjectConfig` is cached per feature-file directory after first use. If the user adds or removes a `pom.xml`, `package.json`, `build.gradle`, `gradlew`, or `behave.ini` mid-session, the stale cached config keeps running the wrong build tool. Fixed by creating a `FileSystemWatcher` for those build files and calling `_configCache.clear()` on `onDidCreate` / `onDidDelete`.

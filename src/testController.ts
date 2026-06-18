@@ -176,6 +176,16 @@ export class GherkinTestController {
     this.watcher.onDidDelete(uri => this._deleteFile(uri));
     context.subscriptions.push(this.watcher);
 
+    // Invalidate cached project configs when build files are added or removed
+    // so that, e.g., adding a pom.xml mid-session picks up the correct runner.
+    const buildWatcher = vscode.workspace.createFileSystemWatcher(
+      '**/{pom.xml,package.json,build.gradle,build.gradle.kts,gradlew,gradlew.bat,behave.ini,requirements.txt}'
+    );
+    const clearConfigCache = () => this._configCache.clear();
+    buildWatcher.onDidCreate(clearConfigCache);
+    buildWatcher.onDidDelete(clearConfigCache);
+    context.subscriptions.push(buildWatcher);
+
     this._discoverAll();  // eager discovery on activation
   }
 
@@ -885,12 +895,15 @@ export class GherkinTestController {
     const failures: FailedStep[] = [];
 
     for (const scenarioItem of this._collectScenarioItems(item)) {
-      const parsed = report.scenarios.get(scenarioItem.label);
+      const parsed = report.scenarios.get(this._reportKey(scenarioItem));
       if (!parsed) { continue; }
       const stepItems: vscode.TestItem[] = [];
       scenarioItem.children.forEach(c => stepItems.push(c));
+      // Some reporters omit background steps; offset so scenario steps align.
+      const bgOffset = Math.max(0, stepItems.length - parsed.steps.length);
       stepItems.forEach((stepItem, idx) => {
-        const stepResult = parsed.steps[idx];
+        if (idx < bgOffset) { return; }
+        const stepResult = parsed.steps[idx - bgOffset];
         if (stepResult?.status === 'failed' && stepResult.errorMessage) {
           const line = this.stepLines.get(stepItem.id);
           if (line !== undefined) { failures.push({ line, error: stepResult.errorMessage }); }

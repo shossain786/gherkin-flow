@@ -1,8 +1,8 @@
 {
   "name": "gherkin-flow",
   "displayName": "Gherkin Flow",
-  "description": "AI-powered BDD toolkit for VS Code. Generate scenarios from plain English, run & debug Cucumber tests with one click, catch quality issues before they ship. Supports Java, TypeScript, JavaScript, and Python.",
-  "version": "0.9.46",
+  "description": "One-click Cucumber test runner with step-level results, AI scenario generation, and a BDD quality linter. Zero config for JS/TS and Python (Behave); one reporter line for Java (Maven/Gradle). Supports monorepos.",
+  "version": "0.9.47",
   "publisher": "RazaTech",
   "icon": "images/icon.png",
   "repository": {

@@ -4,6 +4,23 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.47
+**Reliability fixes + Kotlin/Groovy support + improved docs**
+
+Three reliability bugs fixed (found via internal audit):
+
+- **Fix: inline failure decorations now work** — the red ghost-text annotation on failed step lines was silently broken since 0.9.5. `_applyInlineDecorations` looked up scenarios by name alone but the report map is keyed `featureName::scenarioName`; every lookup returned `undefined`. Fixed by using `_reportKey()` — the same helper used by Test Explorer result application.
+
+- **Fix: inline decoration background-step offset** — when a Cucumber JSON reporter omits background steps from scenario elements, the decoration could land on the wrong step line. Now applies the same `bgOffset` correction that Test Explorer has used since 0.9.13.
+
+- **Fix: project config cache invalidation** — if a `pom.xml`, `package.json`, `build.gradle`, `gradlew`, or `behave.ini` is added or deleted while VS Code is open, GherkinFlow now detects the change and re-runs project detection. Previously the stale cached config persisted for the entire session.
+
+**Kotlin / Groovy step definition support** — the step definition index, file watcher, and Java annotation regex now cover `.kt` and `.groovy` files. Ctrl+click, hover, autocomplete, missing-step detection, and usage heatmap work for Cucumber with Kotlin or Groovy step definitions. The annotation regex also handles the `value = "..."` named-parameter form used in some annotation styles.
+
+**README + Marketplace description** — new *Supported Stacks* section (compatibility table), stronger *Quick Start* guide with per-stack prerequisites and first-run verification steps, and an updated Marketplace description that leads with the primary search term and surfaces zero-config and monorepo support.
+
+---
+
 ### 0.9.46
 **Refactoring actions** — two new code actions available via the lightbulb (💡) on any step line in a `.feature` file:
 

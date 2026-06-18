@@ -6,7 +6,7 @@
 >
 > Describe a requirement in plain English and watch GherkinFlow generate a complete `.feature` file. Run any scenario with one click, step through failures in the debugger, and let the AI-driven quality linter catch bad BDD before your team review.
 >
-> Supports **Java** (Maven / Gradle), **JavaScript / TypeScript** (cucumber-js), and **Python** (Behave) — zero configuration required.
+> Supports **Java** (Maven / Gradle), **JavaScript / TypeScript** (cucumber-js), and **Python** (Behave) — JavaScript and Python need zero configuration; Java needs one reporter line.
 
 ---
 
@@ -63,6 +63,82 @@ That's not a test workflow. That's a context-switch tax — plus a quality probl
   </tr>
 </table>
 
+
+---
+
+## Supported Stacks
+
+GherkinFlow detects your project automatically — no `settings.json` changes required.
+
+| Stack | Runner | Detection Signal | Config needed? |
+|---|---|---|---|
+| **Java + Maven** | `mvn test` / `./mvnw test` | `pom.xml` or Maven wrapper | JSON reporter (one line) |
+| **Java + Gradle** | `./gradlew test` / `gradle test` | `build.gradle` or Gradle wrapper | JSON reporter (one line) |
+| **JavaScript** | `node_modules/.bin/cucumber-js` | `@cucumber/cucumber` in `package.json` | None — auto-configured |
+| **TypeScript** | `node_modules/.bin/cucumber-js` | `@cucumber/cucumber` in `package.json` | None — auto-configured |
+| **Python (Behave)** | `behave` | `behave.ini`, `features/steps/`, or `behave` in `requirements.txt` | None — auto-configured |
+
+**Monorepo / multi-project:** GherkinFlow walks up from each feature file's directory to the nearest build root, so sub-projects each use their own runner and working directory.
+
+**CI pipelines:** Command palette → `GherkinFlow: Generate CI Workflow` scaffolds a ready-to-commit GitHub Actions, GitLab CI, or Jenkinsfile for the detected stack.
+
+---
+
+## Quick Start
+
+### 1 — Prerequisites by stack
+
+**JavaScript / TypeScript (zero config)**
+- VS Code 1.80+
+- `@cucumber/cucumber` installed locally (`npm install --save-dev @cucumber/cucumber`)
+- Feature files in any directory the workspace can see
+
+**Python / Behave (zero config)**
+- VS Code 1.80+
+- `pip install behave`
+- Step definitions in `features/steps/*.py`
+
+**Java / Maven or Gradle (one reporter line)**
+- VS Code 1.80+
+- Cucumber JVM 7+ on the classpath
+- Add the JSON reporter to your runner class (see below) — GherkinFlow reads this file for step-by-step results
+
+```java
+// Maven / Gradle runner class
+@CucumberOptions(
+    plugin = { "json:target/cucumber-report.json" }
+)
+public class RunCucumberTest {}
+```
+
+---
+
+### 2 — First run (all stacks)
+
+1. Open a workspace that contains `.feature` files — the extension activates automatically (look for the flask icon in the Activity Bar)
+2. Open any `.feature` file — **▶ Run Scenario** and **▶ Run Feature** buttons appear above every scenario
+3. Click **▶ Run Scenario** on one scenario — the Testing panel opens and shows live step progress
+4. After the run, check:
+   - ✓ green / ✗ red icons next to each step in the Testing panel
+   - Failed steps show the error message as inline ghost text directly on the failing line
+5. **Ctrl+click** any step to jump to its implementation
+
+> **Troubleshooting:** If buttons don't appear, confirm that a build file (`pom.xml`, `package.json`, `build.gradle`, or `behave.ini`) exists somewhere above your feature files. If the Testing panel shows steps as skipped after a Java run, add the JSON reporter line shown above.
+
+---
+
+### 3 — Try the AI features
+
+**Generate a feature file from a description:**
+1. Open the Command Palette (`Ctrl+Shift+P`)
+2. Run `GherkinFlow: Generate Scenarios from Description`
+3. Type a plain-English requirement — e.g. *"User resets their password via email link"*
+4. A complete `.feature` file streams into a new editor tab
+
+**Generate missing step stubs:**
+1. Write a new step — it will be underlined in yellow if no implementation exists
+2. Click the `⚡ Generate Missing Steps (N)` button on the Feature line
+3. Pick an existing step file — runnable stubs are inserted with correct annotations and types
 
 ---
 
@@ -222,16 +298,6 @@ Automatically detects your build tool — no configuration file needed:
 | `mvn` / `./mvnw` | `pom.xml` or wrapper in project root |
 | `npx cucumber-js` | `@cucumber/cucumber` in `package.json` |
 | `behave` | `behave.ini`, `features/steps/` directory, or `behave` in `requirements.txt` |
-
----
-
-## Quick Start
-
-1. Open any workspace containing `.feature` files — the extension activates automatically
-2. Click **▶ Run Scenario** above any scenario
-3. Watch results appear step-by-step in the **Testing** panel (flask icon in the Activity Bar)
-4. Click a failed step to read the error and stack trace
-5. **Ctrl+click** any step to jump to its implementation
 
 ---
 

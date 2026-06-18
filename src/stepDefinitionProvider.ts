@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 const STEP_RE = /^\s*(Given|When|Then|And|But|\*)\s+(.*)/i;
-const ANNOTATION_RE_JAVA = /@(?:Given|When|Then|And|But)\s*\(\s*"((?:[^"\\]|\\.)*)"\s*\)/g;
+const ANNOTATION_RE_JAVA = /@(?:Given|When|Then|And|But)\s*\(\s*(?:value\s*=\s*)?"((?:[^"\\]|\\.)*)"(?:\s*,[^)]*)?\s*\)/g;
 const ANNOTATION_RE_NODE_STR = /(?:@(?:Given|When|Then|And|But)\s*\(|(?:^|[^.\w])(?:Given|When|Then|And|But)\s*\()\s*(['"`])((?:[^'"`\\]|\\.)*)\1/gm;
 const ANNOTATION_RE_NODE_RE  = /(?:@(?:Given|When|Then|And|But)\s*\(|(?:^|[^.\w])(?:Given|When|Then|And|But)\s*\()\s*\/((?:\\.|[^\\/])+)\/([gimsuy]*)/gm;
 // Matches: @given('pattern') / @when(u"pattern") / @then(r'regex') / Given(/regex/)
@@ -69,7 +69,7 @@ export class StepDefinitionIndex {
   readonly onDidChange = this._onDidChange.event;
 
   constructor(context: vscode.ExtensionContext) {
-    this._watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js,py}');
+    this._watcher = vscode.workspace.createFileSystemWatcher('**/*.{java,ts,js,py,kt,groovy}');
     this._watcher.onDidCreate(uri => this._reloadFile(uri));
     this._watcher.onDidChange(uri => this._reloadFile(uri));
     this._watcher.onDidDelete(uri => { this._removeFile(uri); this._onDidChange.fire(uri); });
@@ -78,7 +78,7 @@ export class StepDefinitionIndex {
 
   async scan(): Promise<void> {
     const uris = await vscode.workspace.findFiles(
-      '**/*.{java,ts,js,py}',
+      '**/*.{java,ts,js,py,kt,groovy}',
       '{**/node_modules/**,**/target/**,**/dist/**,**/venv/**,**/.venv/**,**/env/**,**/__pycache__/**}'
     );
     await Promise.all(uris.map(uri => this._reloadFile(uri)));
