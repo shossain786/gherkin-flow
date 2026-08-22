@@ -4,6 +4,19 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.48
+**Two community-reported bug fixes + the first test suite**
+
+Both reported by [@hakanngul](https://github.com/hakanngul).
+
+- **Fix: regex step definitions reported as "No step definition found" ([#1](https://github.com/shossain786/gherkin-flow/issues/1))** — Java annotations were only treated as regular expressions when the pattern started with `^`. A pattern anchored only at the end, such as `@When("POST isteği (?:atılır|gönderilir|yapılır)$")`, fell through to the Cucumber Expression path, where every regex metacharacter was escaped into a literal — so the step could never match, even though Cucumber matched it correctly at runtime. The check now mirrors Cucumber-JVM's own rule: anchored at either end, script-style `/.../`, or containing a non-prose group. Regexes are anchored at both ends so they still must match the whole step.
+
+- **Fix: Debug Scenario hung and never hit breakpoints ([#2](https://github.com/shossain786/gherkin-flow/issues/2))** — the JVM prints its JDWP banner (`Listening for transport dt_socket at address: 5005`) on **stdout**, but the attach trigger only watched **stderr**. It never fired, so Maven started, the JVM suspended at `suspend=y`, and no debugger ever attached. Both streams are now watched through a single detector, which buffers a short tail so a banner split across two chunks is still caught.
+
+**First test suite.** The bug logic moved into two `vscode`-free modules (`stepPattern.ts`, `debugAttach.ts`) so it can be tested outside the extension host, and the repo now has 15 tests behind `npm test`. Verified fail-before/pass-after: 4 of the regex tests fail against the previous logic, including the exact reported pattern.
+
+---
+
 ### 0.9.47
 **Reliability fixes + Kotlin/Groovy support + improved docs**
 

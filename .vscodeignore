@@ -12,3 +12,4 @@ MARKETING.md
 REVIEW_REQUEST.md
 .mcp.json
 *.vsix
+test/**
