@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { cucumberExpressionToRegex } from './stepPattern';
 
 const STEP_RE = /^\s*(Given|When|Then|And|But|\*)\s+(.*)/i;
 const ANNOTATION_RE_JAVA = /@(?:Given|When|Then|And|But)\s*\(\s*(?:value\s*=\s*)?"((?:[^"\\]|\\.)*)"(?:\s*,[^)]*)?\s*\)/g;
@@ -30,35 +31,6 @@ function extractDocComment(lines: string[], annotationLine: number): string | un
   });
   const result = cleaned.join('\n').trim();
   return result || undefined;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function cucumberExpressionToRegex(pattern: string): RegExp {
-  if (pattern.startsWith('^')) {
-    return new RegExp(pattern, 'i');
-  }
-  const tokenRe = /\{([^}]*)\}/g;
-  let result = '';
-  let last = 0;
-  let m: RegExpExecArray | null;
-  while ((m = tokenRe.exec(pattern)) !== null) {
-    result += escapeRegex(pattern.slice(last, m.index));
-    const token = m[1].toLowerCase();
-    if (token === 'string')                          { result += `(?:"[^"]*"|'[^']*')`; }
-    else if (token === 'int' || token === 'long' ||
-             token === 'short' || token === 'byte' ||
-             token === 'biginteger')                 { result += `-?\\d+`; }
-    else if (token === 'float' || token === 'double'||
-             token === 'bigdecimal')                 { result += `-?\\d+\\.?\\d*`; }
-    else if (token === 'word')                       { result += `\\S+`; }
-    else                                             { result += `.*`; }
-    last = m.index + m[0].length;
-  }
-  result += escapeRegex(pattern.slice(last));
-  return new RegExp(`^${result}$`, 'i');
 }
 
 export class StepDefinitionIndex {
@@ -165,6 +137,8 @@ export class StepDefinitionIndex {
       while ((m = ANNOTATION_RE_NODE_RE.exec(text)) !== null)  { push(m[1], m.index, true); }
     } else {
       ANNOTATION_RE_JAVA.lastIndex = 0;
+      // Let cucumberExpressionToRegex decide regex vs Cucumber Expression — it
+      // applies Cucumber's own heuristic and anchors both ends either way.
       while ((m = ANNOTATION_RE_JAVA.exec(text)) !== null) { push(m[1], m.index); }
     }
 
