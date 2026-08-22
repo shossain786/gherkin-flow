@@ -8,6 +8,7 @@ import { InlineDecorationProvider, FailedStep } from './inlineDecorationProvider
 import { detectProject, ProjectConfig, SpawnArgs } from './projectDetector';
 import { ScenarioHistoryStore } from './scenarioHistoryStore';
 import { LiveOutputParser, LiveStepResult } from './liveOutputParser';
+import { ReadyDetector } from './debugAttach';
 
 const OUTLINE_PREFIX = '[OUTLINE]';
 
@@ -705,13 +706,16 @@ export class GherkinTestController {
         }
       };
 
-      proc.stdout?.on('data', (c: Buffer) => run.appendOutput(c.toString().replace(/\r?\n/g, '\r\n')));
-      proc.stderr?.on('data', (c: Buffer) => {
+      // The JVM prints its JDWP banner on stdout, not stderr — watching only
+      // stderr meant the attach never fired and the run hung forever. (#2)
+      const ready = new ReadyDetector(config.debugType);
+      const onOutput = (c: Buffer) => {
         const text = c.toString();
         run.appendOutput(text.replace(/\r?\n/g, '\r\n'));
-        if (config.debugType === 'java'    && /Listening for transport/i.test(text)) { void attach(); }
-        if (config.debugType === 'debugpy' && /waiting for client/i.test(text))      { void attach(); }
-      });
+        if (ready.accept(text)) { void attach(); }
+      };
+      proc.stdout?.on('data', onOutput);
+      proc.stderr?.on('data', onOutput);
 
       // Node: --inspect-brk pauses the process immediately; attach after a short delay.
       if (config.debugType === 'node') { setTimeout(() => void attach(), 500); }

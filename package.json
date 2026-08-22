@@ -62,8 +62,13 @@
     "languages": [
       {
         "id": "gherkin",
-        "aliases": ["Gherkin", "Cucumber"],
-        "extensions": [".feature"],
+        "aliases": [
+          "Gherkin",
+          "Cucumber"
+        ],
+        "extensions": [
+          ".feature"
+        ],
         "configuration": "./language-configuration.json",
         "icon": {
           "light": "./images/icon.png",
@@ -162,7 +167,19 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["GF001","GF002","GF003","GF004","GF005","GF006","GF007","GF008","GF009","GF010","GF011"]
+            "enum": [
+              "GF001",
+              "GF002",
+              "GF003",
+              "GF004",
+              "GF005",
+              "GF006",
+              "GF007",
+              "GF008",
+              "GF009",
+              "GF010",
+              "GF011"
+            ]
           },
           "default": [],
           "markdownDescription": "Suppress specific GherkinFlow linter rules by code. Example: `[\"GF006\", \"GF007\"]` disables the UI-detail and jargon hints.\n\n| Code | Rule |\n|------|------|\n| GF001 | Duplicate scenario name |\n| GF002 | Scenario Outline with one example row |\n| GF003 | Scenario with no Then step |\n| GF004 | Scenario with no When step |\n| GF005 | Scenario with more than 8 steps |\n| GF006 | UI implementation detail in step text |\n| GF007 | Developer jargon in step text |\n| GF008 | Feature with no scenarios |\n| GF009 | Background with more than 4 steps |\n| GF010 | Hardcoded value repeated across 3+ scenarios |\n| GF011 | And/But as the first step in a scenario |"
@@ -194,7 +211,8 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./"
+    "watch": "tsc -watch -p ./",
+    "test": "tsc -p . && node --test test/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "^5.5.4",
