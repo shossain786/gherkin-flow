@@ -23,11 +23,31 @@ jobs:
       - name: Package extension
         run: npx @vscode/vsce package
 
-      - name: Publish to Marketplace
-        run: npx @vscode/vsce publish -p ${{ secrets.VSCE_PAT }}
-
+      # The release is created BEFORE publishing. Publishing is the step that can
+      # fail for reasons unrelated to the build — most often because the version
+      # was already pushed to the Marketplace by hand — and when it did, the
+      # asset upload never ran and the tag was left with no release. (v0.9.48)
       - name: Upload .vsix as release asset
         uses: softprops/action-gh-release@v2
         with:
           files: '*.vsix'
           generate_release_notes: true
+
+      - name: Publish to Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          set +e
+          out=$(npx @vscode/vsce publish -p "$VSCE_PAT" 2>&1)
+          code=$?
+          echo "$out"
+          if [ "$code" -eq 0 ]; then
+            exit 0
+          fi
+          # An already-published version means the release went out by hand; that
+          # is not a build failure. Anything else still fails the run.
+          if echo "$out" | grep -qi 'already exists'; then
+            echo "::notice::Version already on the Marketplace; nothing to publish."
+            exit 0
+          fi
+          exit "$code"
