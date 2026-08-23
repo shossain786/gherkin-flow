@@ -193,7 +193,14 @@ export class GherkinTestController {
   public getConfig(uri: vscode.Uri): ProjectConfig {
     const dir = path.dirname(uri.fsPath);
     let cfg = this._configCache.get(dir);
-    if (!cfg) { cfg = detectProject(dir); this._configCache.set(dir, cfg); }
+    if (!cfg) {
+      const s = vscode.workspace.getConfiguration('gherkinflow', uri);
+      cfg = detectProject(dir, {
+        scopeToRunnerClass: s.get<boolean>('java.scopeToRunnerClass', true),
+        runnerClass:        s.get<string>('java.runnerClass', ''),
+      });
+      this._configCache.set(dir, cfg);
+    }
     return cfg;
   }
 
