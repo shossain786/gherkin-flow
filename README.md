@@ -111,6 +111,18 @@ GherkinFlow detects your project automatically — no `settings.json` changes re
 public class RunCucumberTest {}
 ```
 
+**Scoping the run to your Cucumber runner.** Running one scenario should not run
+your unit and integration tests too, so GherkinFlow scopes Java runs to the Cucumber
+runner class — `-Dtest=<Runner>` for Maven, `--tests <fully.qualified.Runner>` for
+Gradle. The runner is detected automatically (`@CucumberOptions`,
+`AbstractTestNGCucumberTests`, `@RunWith(Cucumber.class)`, or the JUnit 5
+`@Suite` + `@IncludeEngines("cucumber")` style).
+
+| Setting | Use it when |
+|---|---|
+| `gherkinflow.java.runnerClass` | Detection picks the wrong class, or you want to name it yourself. Accepts `RunCucumberTest` or `com.acme.RunCucumberTest`; comma-separate several. |
+| `gherkinflow.java.scopeToRunnerClass` | Set to `false` to run the full `test` task instead. Needed if your Surefire `<suiteXmlFiles>` must drive the run — Surefire ignores `suiteXmlFiles` when `-Dtest` is set. |
+
 ---
 
 ### 2 — First run (all stacks)

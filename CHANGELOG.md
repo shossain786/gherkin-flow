@@ -4,6 +4,23 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### Unreleased
+**Java: running one scenario no longer runs the whole test suite**
+
+- **Fix: a Cucumber scenario run executed every test class in the project ([#4](https://github.com/shossain786/gherkin-flow/issues/4))** — reported by [@hakanngul](https://github.com/hakanngul), whose project ran ~643 tests to run one scenario. The Maven command was `mvn test -Dcucumber.features=<feature>:<line>`. That property is a **Cucumber runtime** filter: it narrows what the Cucumber runner executes, and does nothing to Surefire's test-class selection. So Surefire still ran every class in `src/test/java` — unit, integration, JUnit 5, plain TestNG — and the correctly-filtered scenario ran alongside them.
+
+  Java runs are now scoped at the build tool: `-Dtest=<Runner>` plus `-DfailIfNoSpecifiedTests=false` for Maven, `--tests <fully.qualified.Runner>` for Gradle. GherkinFlow finds the runner class by scanning the module's test sources for `@CucumberOptions`, `AbstractTestNGCucumberTests`, `@RunWith(Cucumber.class)`, and the JUnit 5 `@Suite` + `@IncludeEngines("cucumber")` style. Abstract base classes are skipped — they aren't runnable. When several runners exist, the one that declares the feature being run wins; when none does, all of them are passed (both tools accept a list), so the scope is still far narrower than the whole suite and can never exclude the runner that owns the scenario.
+
+  This also fixes a case that never worked: a runner whose class name doesn't match Surefire's default includes (`*Test`, `Test*`, `*Tests`, `*TestCase`) — `SauceDemoCucumberRunner`, say. `-Dtest=` overrides the includes, so it now runs without custom `pom.xml` configuration.
+
+- **Two new settings** — `gherkinflow.java.runnerClass` names the runner explicitly (comma-separate several) when detection can't be trusted, and `gherkinflow.java.scopeToRunnerClass` turns the scoping off to restore the previous full-`test`-task behaviour.
+
+**Note for Surefire users with `<suiteXmlFiles>`:** Surefire ignores `suiteXmlFiles` when `-Dtest` is set. That is what makes the scoping work, but it does mean a scenario launched from GherkinFlow no longer goes through your suite XML. Set `gherkinflow.java.scopeToRunnerClass` to `false` if you need the suite XML path.
+
+**Tests** — 14 new tests in `test/javaRunner.test.mjs` build a fixture mirroring the reported project layout. Verified fail-before/pass-after: 8 fail against the previous logic.
+
+---
+
 ### 0.9.48
 **Two community-reported bug fixes + the first test suite**
 

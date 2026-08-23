@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { findCucumberRunners, runnersForFeature, JavaRunner } from './javaRunner';
 
 const IS_WIN = process.platform === 'win32';
 
@@ -134,6 +135,54 @@ function behaveConfig(projectRoot: string): ProjectConfig {
   };
 }
 
+// Options resolved from user settings and handed to the Java runners.
+export interface DetectOptions {
+  // Scope the build tool to the Cucumber runner class so running one scenario
+  // doesn't also run every other test class in the project (gherkin-flow#4).
+  scopeToRunnerClass?: boolean;   // default: true
+  // Explicit runner class (or comma-separated list). Skips detection entirely.
+  runnerClass?: string;
+}
+
+// Resolves the Cucumber runner class names to scope a run to, given the feature
+// being run. Returns [] when scoping is off or no runner could be identified —
+// callers then fall back to an unscoped run rather than running nothing.
+type RunnerNames = (featureRelPath?: string) => string[];
+
+function runnerNameResolver(projectRoot: string, opts?: DetectOptions): RunnerNames {
+  if (opts?.scopeToRunnerClass === false) { return () => []; }
+
+  const override = opts?.runnerClass?.trim();
+  if (override) {
+    const names = override.split(',').map(n => n.trim()).filter(Boolean);
+    return () => names;
+  }
+
+  // Detection walks the test sources, so memoise it for the life of this config.
+  // The controller drops cached configs when build files change.
+  let found: JavaRunner[] | undefined;
+  return (featureRelPath) => {
+    if (found === undefined) {
+      try { found = findCucumberRunners(projectRoot); } catch { found = []; }
+    }
+    return runnersForFeature(found, featureRelPath).map(r => r.fqcn);
+  };
+}
+
+// Surefire's -Dtest matches on the simple class name; a dotted FQCN is not
+// portable across Surefire versions. failIfNoSpecifiedTests keeps a reactor
+// build from failing on modules that hold no Cucumber runner.
+function mavenScopeArgs(names: string[]): string[] {
+  if (names.length === 0) { return []; }
+  const simple = [...new Set(names.map(n => n.split('.').pop()!))];
+  return [`-Dtest=${simple.join(',')}`, '-DfailIfNoSpecifiedTests=false'];
+}
+
+// Gradle's --tests matches fully-qualified names; a bare simple name does not match.
+function gradleScopeArgs(names: string[]): string[] {
+  return names.flatMap(n => ['--tests', n]);
+}
+
 // Replace " with . so Cucumber treats it as a regex wildcard.
 // Double quotes cannot be reliably escaped inside cmd.exe quoted strings on Windows.
 const safeFilter = (s: string) => s.replace(/"/g, '.');
@@ -195,7 +244,9 @@ function nodeConfig(projectRoot: string): ProjectConfig {
   };
 }
 
-function gradleConfig(projectRoot: string, exe: string): ProjectConfig {
+function gradleConfig(projectRoot: string, exe: string, opts?: DetectOptions): ProjectConfig {
+  const scope = runnerNameResolver(projectRoot, opts);
+  const only  = (feat?: string) => gradleScopeArgs(scope(feat));
   return {
     type: 'java-gradle',
     projectRoot,
@@ -203,21 +254,22 @@ function gradleConfig(projectRoot: string, exe: string): ProjectConfig {
       file: exe,
       args: [
         'test',
+        ...only(feat),
         ...(feat ? [`-Pcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
         ...(line === undefined ? [`-Pcucumber.filter.name=${safeFilter(name)}`] : []),
       ],
     }),
     buildFeatureArgs: (rel) => ({
       file: exe,
-      args: ['test', `-Pcucumber.features=${rel}`],
+      args: ['test', ...only(rel), `-Pcucumber.features=${rel}`],
     }),
     buildTagArgs: (tag) => ({
       file: exe,
-      args: ['test', `-Pcucumber.filter.tags=${safeFilter(tag)}`],
+      args: ['test', ...only(), `-Pcucumber.filter.tags=${safeFilter(tag)}`],
     }),
     buildDryRunArgs: (rel) => ({
       file: exe,
-      args: ['test', `-Pcucumber.features=${rel}`, '-Pcucumber.filter.dryRun=true'],
+      args: ['test', ...only(rel), `-Pcucumber.features=${rel}`, '-Pcucumber.filter.dryRun=true'],
     }),
     buildDebugScenarioArgs: (name, feat, line) => ({
       // --debug-jvm suspends the JVM on port 5005 waiting for a debugger to attach.
@@ -225,6 +277,7 @@ function gradleConfig(projectRoot: string, exe: string): ProjectConfig {
       args: [
         'test',
         '--debug-jvm',
+        ...only(feat),
         ...(feat ? [`-Pcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
         ...(line === undefined ? [`-Pcucumber.filter.name=${safeFilter(name)}`] : []),
       ],
@@ -236,7 +289,9 @@ function gradleConfig(projectRoot: string, exe: string): ProjectConfig {
   };
 }
 
-function mavenConfig(projectRoot: string, exe: string): ProjectConfig {
+function mavenConfig(projectRoot: string, exe: string, opts?: DetectOptions): ProjectConfig {
+  const scope = runnerNameResolver(projectRoot, opts);
+  const only  = (feat?: string) => mavenScopeArgs(scope(feat));
   return {
     type: 'java-maven',
     projectRoot,
@@ -244,21 +299,22 @@ function mavenConfig(projectRoot: string, exe: string): ProjectConfig {
       file: exe,
       args: [
         'test',
+        ...only(feat),
         ...(feat ? [`-Dcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
         ...(line === undefined ? [`-Dcucumber.filter.name=${safeFilter(name)}`] : []),
       ],
     }),
     buildFeatureArgs: (rel) => ({
       file: exe,
-      args: ['test', `-Dcucumber.features=${rel}`],
+      args: ['test', ...only(rel), `-Dcucumber.features=${rel}`],
     }),
     buildTagArgs: (tag) => ({
       file: exe,
-      args: ['test', `-Dcucumber.filter.tags=${safeFilter(tag)}`],
+      args: ['test', ...only(), `-Dcucumber.filter.tags=${safeFilter(tag)}`],
     }),
     buildDryRunArgs: (rel) => ({
       file: exe,
-      args: ['test', `-Dcucumber.features=${rel}`, '-Dcucumber.filter.dryRun=true'],
+      args: ['test', ...only(rel), `-Dcucumber.features=${rel}`, '-Dcucumber.filter.dryRun=true'],
     }),
     buildDebugScenarioArgs: (name, feat, line) => ({
       // -Dmaven.surefire.debug suspends the JVM on port 5005 waiting for a debugger.
@@ -266,6 +322,7 @@ function mavenConfig(projectRoot: string, exe: string): ProjectConfig {
       args: [
         'test',
         '-Dmaven.surefire.debug',
+        ...only(feat),
         ...(feat ? [`-Dcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
         ...(line === undefined ? [`-Dcucumber.filter.name=${safeFilter(name)}`] : []),
       ],
@@ -279,23 +336,23 @@ function mavenConfig(projectRoot: string, exe: string): ProjectConfig {
 
 // Walk up from startDir until a recognised build file is found.
 // Stops at the filesystem root. Falls back to mvn with startDir as root.
-export function detectProject(startDir: string): ProjectConfig {
+export function detectProject(startDir: string, opts?: DetectOptions): ProjectConfig {
   let dir = startDir;
   while (true) {
     if (exists(dir, 'package.json') && hasNodeCucumber(dir)) { return nodeConfig(dir); }
     if (hasBehaveProject(dir))                               { return behaveConfig(dir); }
-    if (IS_WIN  && exists(dir, 'gradlew.bat')) { return gradleConfig(dir, 'gradlew.bat'); }
-    if (!IS_WIN && exists(dir, 'gradlew'))     { return gradleConfig(dir, './gradlew');   }
+    if (IS_WIN  && exists(dir, 'gradlew.bat')) { return gradleConfig(dir, 'gradlew.bat', opts); }
+    if (!IS_WIN && exists(dir, 'gradlew'))     { return gradleConfig(dir, './gradlew', opts);   }
     if (exists(dir, 'build.gradle') || exists(dir, 'build.gradle.kts')) {
-      return gradleConfig(dir, 'gradle');
+      return gradleConfig(dir, 'gradle', opts);
     }
-    if (IS_WIN  && exists(dir, 'mvnw.cmd'))    { return mavenConfig(dir, 'mvnw.cmd');    }
-    if (!IS_WIN && exists(dir, 'mvnw'))        { return mavenConfig(dir, './mvnw');      }
-    if (exists(dir, 'pom.xml'))                { return mavenConfig(dir, 'mvn');         }
+    if (IS_WIN  && exists(dir, 'mvnw.cmd'))    { return mavenConfig(dir, 'mvnw.cmd', opts);    }
+    if (!IS_WIN && exists(dir, 'mvnw'))        { return mavenConfig(dir, './mvnw', opts);      }
+    if (exists(dir, 'pom.xml'))                { return mavenConfig(dir, 'mvn', opts);         }
 
     const parent = path.dirname(dir);
     if (parent === dir) { break; }  // reached filesystem root
     dir = parent;
   }
-  return mavenConfig(startDir, 'mvn');
+  return mavenConfig(startDir, 'mvn', opts);
 }

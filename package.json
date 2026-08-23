@@ -183,6 +183,16 @@
           },
           "default": [],
           "markdownDescription": "Suppress specific GherkinFlow linter rules by code. Example: `[\"GF006\", \"GF007\"]` disables the UI-detail and jargon hints.\n\n| Code | Rule |\n|------|------|\n| GF001 | Duplicate scenario name |\n| GF002 | Scenario Outline with one example row |\n| GF003 | Scenario with no Then step |\n| GF004 | Scenario with no When step |\n| GF005 | Scenario with more than 8 steps |\n| GF006 | UI implementation detail in step text |\n| GF007 | Developer jargon in step text |\n| GF008 | Feature with no scenarios |\n| GF009 | Background with more than 4 steps |\n| GF010 | Hardcoded value repeated across 3+ scenarios |\n| GF011 | And/But as the first step in a scenario |"
+        },
+        "gherkinflow.java.scopeToRunnerClass": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Java only. Scope a run to the Cucumber runner class (`-Dtest=` for Maven, `--tests` for Gradle) so running one scenario does not also run every other test class in the project. Turn this off to run the full `test` task as before."
+        },
+        "gherkinflow.java.runnerClass": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Java only. The Cucumber runner class to scope runs to, e.g. `RunCucumberTest` or `com.acme.RunCucumberTest`. Comma-separate several. Leave empty to detect runners automatically. Ignored when `#gherkinflow.java.scopeToRunnerClass#` is off."
         }
       }
     },
