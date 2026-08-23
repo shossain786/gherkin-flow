@@ -4,7 +4,7 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
-### Unreleased
+### 0.9.49
 **Java: running one scenario no longer runs the whole test suite**
 
 - **Fix: a Cucumber scenario run executed every test class in the project ([#4](https://github.com/shossain786/gherkin-flow/issues/4))** — reported by [@hakanngul](https://github.com/hakanngul), whose project ran ~643 tests to run one scenario. The Maven command was `mvn test -Dcucumber.features=<feature>:<line>`. That property is a **Cucumber runtime** filter: it narrows what the Cucumber runner executes, and does nothing to Surefire's test-class selection. So Surefire still ran every class in `src/test/java` — unit, integration, JUnit 5, plain TestNG — and the correctly-filtered scenario ran alongside them.
