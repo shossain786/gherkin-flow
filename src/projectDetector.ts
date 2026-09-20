@@ -255,21 +255,21 @@ function gradleConfig(projectRoot: string, exe: string, opts?: DetectOptions): P
       args: [
         'test',
         ...only(feat),
-        ...(feat ? [`-Pcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
-        ...(line === undefined ? [`-Pcucumber.filter.name=${safeFilter(name)}`] : []),
+        ...(feat ? [`-Dcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
+        ...(line === undefined ? [`-Dcucumber.filter.name=${safeFilter(name)}`] : []),
       ],
     }),
     buildFeatureArgs: (rel) => ({
       file: exe,
-      args: ['test', ...only(rel), `-Pcucumber.features=${rel}`],
+      args: ['test', ...only(rel), `-Dcucumber.features=${rel}`],
     }),
     buildTagArgs: (tag) => ({
       file: exe,
-      args: ['test', ...only(), `-Pcucumber.filter.tags=${safeFilter(tag)}`],
+      args: ['test', ...only(), `-Dcucumber.filter.tags=${safeFilter(tag)}`],
     }),
     buildDryRunArgs: (rel) => ({
       file: exe,
-      args: ['test', ...only(rel), `-Pcucumber.features=${rel}`, '-Pcucumber.filter.dryRun=true'],
+      args: ['test', ...only(rel), `-Dcucumber.features=${rel}`, '-Dcucumber.filter.dryRun=true'],
     }),
     buildDebugScenarioArgs: (name, feat, line) => ({
       // --debug-jvm suspends the JVM on port 5005 waiting for a debugger to attach.
@@ -278,8 +278,8 @@ function gradleConfig(projectRoot: string, exe: string, opts?: DetectOptions): P
         'test',
         '--debug-jvm',
         ...only(feat),
-        ...(feat ? [`-Pcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
-        ...(line === undefined ? [`-Pcucumber.filter.name=${safeFilter(name)}`] : []),
+        ...(feat ? [`-Dcucumber.features=${line !== undefined ? `${feat}:${line}` : feat}`] : []),
+        ...(line === undefined ? [`-Dcucumber.filter.name=${safeFilter(name)}`] : []),
       ],
     }),
     debugPort: 5005,

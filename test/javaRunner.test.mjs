@@ -87,6 +87,32 @@ test('#4 the Cucumber filter arguments are unchanged', () => {
   assert.ok(args.includes(`-Dcucumber.features=${FEATURE}:3`));
 });
 
+test('#4 Gradle passes Cucumber properties to the test JVM rather than project properties', () => {
+  const root = fixture();
+  fs.rmSync(path.join(root, 'pom.xml'));
+  write(root, 'build.gradle', 'apply plugin: "java"\n');
+  const cfg = detectProject(featureDir(root));
+  assert.equal(cfg.type, 'java-gradle');
+
+  const scenario = cfg.buildScenarioArgs('login', FEATURE, 3).args;
+  assert.ok(scenario.includes(`-Dcucumber.features=${FEATURE}:3`));
+  assert.ok(!scenario.includes('-Pcucumber.features='));
+  assert.ok(!scenario.includes('-Pcucumber.filter.name='));
+
+  const byName = cfg.buildScenarioArgs('login', FEATURE).args;
+  assert.ok(byName.includes('-Dcucumber.filter.name=login'));
+  assert.ok(!byName.includes('-Pcucumber.filter.name='));
+
+  const dryRun = cfg.buildDryRunArgs(FEATURE).args;
+  assert.ok(dryRun.includes(`-Dcucumber.features=${FEATURE}`));
+  assert.ok(dryRun.includes('-Dcucumber.filter.dryRun=true'));
+  assert.ok(!dryRun.includes('-Pcucumber.filter.dryRun='));
+
+  const tagRun = cfg.buildTagArgs('@smoke').args;
+  assert.ok(tagRun.includes('-Dcucumber.filter.tags=@smoke'));
+  assert.ok(!tagRun.includes('-Pcucumber.filter.tags='));
+});
+
 test('#4 feature, tag and dry-run modes are scoped too', () => {
   const root = fixture();
   const cfg = cfgOf(root);
