@@ -4,6 +4,15 @@ All notable changes to GherkinFlow are documented here.
 
 ---
 
+### 0.9.50
+**Gradle: Cucumber filters now reach the test JVM**
+
+- **Fix: Gradle scenario and feature runs were sending Cucumber filters as project properties (`-Pcucumber.features`, `-Pcucumber.filter.name`) instead of JVM properties** — the filter never reached the test JVM, so the runner saw no scenario or feature filter. Gradle runs now forward the correct JVM arguments (`-Dcucumber.features`, `-Dcucumber.filter.name`, `-Dcucumber.filter.tags`, `-Dcucumber.filter.dryRun=true`) while still scoping execution to the matching Cucumber runner.
+
+- **Regression coverage** — added a focused test proving the flag is passed to the JVM and not left as a Gradle project property.
+
+---
+
 ### 0.9.49
 **Java: running one scenario no longer runs the whole test suite**
 
